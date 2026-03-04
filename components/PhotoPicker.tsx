@@ -25,7 +25,7 @@ export default function PhotoPicker({
         type="button"
         disabled={disabled}
         onClick={() => cameraRef.current?.click()}
-        className="px-3 py-2 rounded-xl bg-black text-white text-sm active:scale-[0.99] disabled:opacity-50"
+        className="px-3 py-2 rounded-xl bg-black text-white text-sm active:scale-[0.99] disabled:opacity-70"
       >
         {cameraLabel}
       </button>
@@ -47,7 +47,7 @@ export default function PhotoPicker({
         type="button"
         disabled={disabled}
         onClick={() => galleryRef.current?.click()}
-        className="px-3 py-2 rounded-xl border text-sm active:scale-[0.99] disabled:opacity-50"
+        className="px-3 py-2 rounded-xl border text-sm active:scale-[0.99] disabled:opacity-70"
       >
         {galleryLabel}
       </button>
