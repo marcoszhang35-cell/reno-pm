@@ -260,10 +260,10 @@ export default function P4Construction({
 
   return (
     <div className="space-y-4">
-        <div className="text-xs opacity-60">P4 loaded, projectId: {projectId}</div>
+        <div className="text-xs opacity-80">P4 loaded, projectId: {projectId}</div>
       <div className="bg-white border rounded-2xl p-4">
         <div className="font-bold">P4 施工中</div>
-        <div className="mt-2 text-sm opacity-70">
+        <div className="mt-2 text-sm opacity-90">
           每个工种可以添加多条记录（多次进场）。每条记录可拍照、写备注、记录团队/费用/工期。
         </div>
         {msg && <div className="mt-3 text-sm text-red-600">{msg}</div>}
@@ -274,7 +274,7 @@ export default function P4Construction({
         <div className="flex items-center justify-between gap-2">
           <div>
             <div className="font-bold">未归类施工照片</div>
-            <div className="text-xs opacity-60 mt-1">先拍了再说，不绑定任何记录也可以。</div>
+            <div className="text-xs opacity-80 mt-1">先拍了再说，不绑定任何记录也可以。</div>
           </div>
 
           <PhotoPicker onPick={(file) => uploadWorkPhoto(file, null)} />
@@ -307,7 +307,7 @@ export default function P4Construction({
         </div>
 
         {(photosByItem["__UNASSIGNED__"] ?? []).length === 0 && (
-          <div className="mt-3 text-sm opacity-60">暂无未归类照片。</div>
+          <div className="mt-3 text-sm opacity-80">暂无未归类照片。</div>
         )}
       </div>
 
@@ -324,7 +324,7 @@ export default function P4Construction({
             </div>
 
             {list.length === 0 ? (
-              <div className="text-sm opacity-60">暂无记录。</div>
+              <div className="text-sm opacity-80">暂无记录。</div>
             ) : (
               <div className="space-y-4">
                 {list.map((it) => {
@@ -340,7 +340,7 @@ export default function P4Construction({
 
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
-                          <div className="text-xs opacity-70">团队名称</div>
+                          <div className="text-xs opacity-90">团队名称</div>
                           <input
                             value={it.team_name ?? ""}
                             onChange={(e) => updateWorkItem(it.id, { team_name: e.target.value })}
@@ -350,7 +350,7 @@ export default function P4Construction({
                         </div>
 
                         <div>
-                          <div className="text-xs opacity-70">价格（NZD）</div>
+                          <div className="text-xs opacity-90">价格（NZD）</div>
                           <input
                             type="number"
                             value={it.price ?? 0}
@@ -360,7 +360,7 @@ export default function P4Construction({
                         </div>
 
                         <div>
-                          <div className="text-xs opacity-70">开始日期</div>
+                          <div className="text-xs opacity-90">开始日期</div>
                           <input
                             type="date"
                             value={it.start_date ?? ""}
@@ -370,7 +370,7 @@ export default function P4Construction({
                         </div>
 
                         <div>
-                          <div className="text-xs opacity-70">结束日期</div>
+                          <div className="text-xs opacity-90">结束日期</div>
                           <input
                             type="date"
                             value={it.end_date ?? ""}
@@ -380,7 +380,7 @@ export default function P4Construction({
                         </div>
 
                         <div className="sm:col-span-2">
-                          <div className="text-xs opacity-70">工期（天，可选）</div>
+                          <div className="text-xs opacity-90">工期（天，可选）</div>
                           <input
                             type="number"
                             value={it.days ?? ""}
@@ -391,7 +391,7 @@ export default function P4Construction({
                         </div>
 
                         <div className="sm:col-span-2">
-                          <div className="text-xs opacity-70">备注</div>
+                          <div className="text-xs opacity-90">备注</div>
                           <textarea
                             value={it.note ?? ""}
                             onChange={(e) => updateWorkItem(it.id, { note: e.target.value })}
@@ -406,24 +406,15 @@ export default function P4Construction({
                       <div className="mt-3 border rounded-2xl p-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-semibold text-sm">施工照片（{phList.length}）</div>
-                          <label className="px-3 py-2 rounded-xl bg-black text-white text-sm cursor-pointer">
-                            + 拍照/上传
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) uploadWorkPhoto(f, it.id);
-                                e.currentTarget.value = "";
-                              }}
-                            />
-                          </label>
+                          <PhotoPicker
+  cameraLabel="+ 拍照"
+  galleryLabel="+ 从图库选择"
+  onPick={(file) => uploadWorkPhoto(file, it.id)}
+/>
                         </div>
 
                         {phList.length === 0 ? (
-                          <div className="mt-2 text-sm opacity-60">暂无照片。</div>
+                          <div className="mt-2 text-sm opacity-80">暂无照片。</div>
                         ) : (
                           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {phList.map((ph) => (
@@ -465,11 +456,11 @@ export default function P4Construction({
       {/* 完工关闭 */}
       <div className="bg-white border rounded-2xl p-4">
         <div className="font-bold">完工关闭</div>
-        <div className="mt-2 text-sm opacity-70">关闭后项目进入 CLOSED，但历史信息仍可查看。</div>
+        <div className="mt-2 text-sm opacity-90">关闭后项目进入 CLOSED，但历史信息仍可查看。</div>
         <button
           onClick={closeProject}
           disabled={loading}
-          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-50"
+          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-70"
         >
           ✅ 完工（关闭项目）
         </button>

@@ -278,12 +278,12 @@ export default function P3Materials({
 
   return (
     <div className="space-y-4">
-      <div className="text-xs opacity-60">projectId: {projectId}</div>
+      <div className="text-xs opacity-80">projectId: {projectId}</div>
 
       {/* 开工日期 */}
       <div className="bg-white border rounded-2xl p-4">
         <div className="font-bold">P3 施工进场 / 材料准备</div>
-        <div className="mt-2 text-sm opacity-70">
+        <div className="mt-2 text-sm opacity-90">
           先录入开工日期与材料清单；材料照片建议按材料上传，便于后期核对。
         </div>
 
@@ -298,7 +298,7 @@ export default function P3Materials({
           <button
             onClick={saveStartDate}
             disabled={loading}
-            className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-50"
+            className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-70"
           >
             保存开工日期
           </button>
@@ -310,7 +310,7 @@ export default function P3Materials({
         <div className="flex items-center justify-between gap-2">
           <div>
             <div className="font-bold">未归类照片</div>
-            <div className="text-xs opacity-60 mt-1">先拍照上传也可以，后面再归类到具体材料。</div>
+            <div className="text-xs opacity-80 mt-1">先拍照上传也可以，后面再归类到具体材料。</div>
           </div>
 
           <PhotoPicker
@@ -365,7 +365,7 @@ export default function P3Materials({
         </div>
 
         {(photosByMaterial["__UNASSIGNED__"] ?? []).length === 0 && (
-          <div className="mt-3 text-sm opacity-60">暂无未归类照片。</div>
+          <div className="mt-3 text-sm opacity-80">暂无未归类照片。</div>
         )}
       </div>
 
@@ -402,7 +402,7 @@ export default function P3Materials({
                 {/* 数量/单价 */}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <div>
-                    <div className="text-xs opacity-70">数量</div>
+                    <div className="text-xs opacity-90">数量</div>
                     <input
                       type="number"
                       value={r.qty}
@@ -411,7 +411,7 @@ export default function P3Materials({
                     />
                   </div>
                   <div>
-                    <div className="text-xs opacity-70">单价</div>
+                    <div className="text-xs opacity-90">单价</div>
                     <input
                       type="number"
                       value={r.unit_price}
@@ -428,24 +428,15 @@ export default function P3Materials({
                       材料照片（{list.length}）
                     </div>
 
-                    <label className="px-3 py-2 rounded-xl bg-black text-white text-sm cursor-pointer">
-                      + 拍照/上传
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) uploadMaterialPhoto(f, r.id);
-                          e.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
+                    <PhotoPicker
+  cameraLabel="+ 拍照"
+  galleryLabel="+ 从图库选择"
+  onPick={(file) => uploadMaterialPhoto(file, null)}
+/>
                   </div>
 
                   {list.length === 0 ? (
-                    <div className="mt-2 text-sm opacity-60">暂无照片。</div>
+                    <div className="mt-2 text-sm opacity-80">暂无照片。</div>
                   ) : (
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {list.map((ph) => (
@@ -492,7 +483,7 @@ export default function P3Materials({
           })}
 
           {rows.length === 0 && (
-            <div className="text-sm opacity-60">暂无材料，点击“新增材料”。</div>
+            <div className="text-sm opacity-80">暂无材料，点击“新增材料”。</div>
           )}
         </div>
       </div>
@@ -500,13 +491,13 @@ export default function P3Materials({
       {/* 阶段确认 */}
       <div className="bg-white border rounded-2xl p-4">
         <div className="font-bold">阶段确认</div>
-        <div className="mt-2 text-sm opacity-70">
+        <div className="mt-2 text-sm opacity-90">
           确认后进入 P4（施工中），首页颜色会随阶段变化。
         </div>
         <button
           onClick={confirmToP4}
           disabled={loading}
-          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-50"
+          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-90"
         >
           ✅ 确认进入 P4（施工中）
         </button>

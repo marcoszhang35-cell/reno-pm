@@ -183,10 +183,10 @@ if (paths.length) {
 
     if (!existing || existing.length === 0) {
       const rows = [
-        { seq: 1, title: "定金", percent: 20 },
-        { seq: 2, title: "开工", percent: 30 },
-        { seq: 3, title: "中期", percent: 30 },
-        { seq: 4, title: "尾款", percent: 20 },
+        { seq: 1, title: "Deposite", percent: 20 },
+        { seq: 2, title: "Second", percent: 30 },
+        { seq: 3, title: "Third", percent: 30 },
+        { seq: 4, title: "Final", percent: 20 },
       ].map((r) => ({ quote_id: q.id, owner_id: user.id, ...r }));
 
       const { error: pErr } = await supabase.from("project_quote_payments").insert(rows);
@@ -225,23 +225,33 @@ if (paths.length) {
   }
 
   async function updateItem(id: string, patch: Partial<QuoteItem>) {
-    if (!quote) return;
-    setMsg("");
+  if (!quote) return;
+  setMsg("");
 
-    const { error } = await supabase
-      .from("project_quote_items")
-      .update({
-        item_name: patch.item_name,
-        description: patch.description,
-        qty: patch.qty,
-        unit_price: patch.unit_price,
-        sort_order: patch.sort_order,
-      })
-      .eq("id", id);
+  const { error } = await supabase
+    .from("project_quote_items")
+    .update({
+      item_name: patch.item_name,
+      description: patch.description,
+      qty: patch.qty,
+      unit_price: patch.unit_price,
+      sort_order: patch.sort_order,
+    })
+    .eq("id", id);
 
-    if (error) return setMsg(error.message);
+  if (error) return setMsg(error.message);
+
+  // ✅ 本地更新（至少先不抖）
+  setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } as any : it)));
+
+  // ✅ 只有 qty / unit_price / sort_order 会影响 DB金额/总价，才刷新
+  const affectsTotals =
+    patch.qty !== undefined || patch.unit_price !== undefined || patch.sort_order !== undefined;
+
+  if (affectsTotals) {
     await refresh();
   }
+}
 
   async function deleteItem(id: string) {
     setMsg("");
@@ -273,35 +283,47 @@ if (paths.length) {
 
   // --- Quote fields ---
   async function updateQuote(patch: Partial<Quote>) {
-    if (!quote) return;
-    setMsg("");
-    const { error } = await supabase
-      .from("project_quotes")
-      .update({
-        recommended_total: patch.recommended_total,
-        note: patch.note,
-      })
-      .eq("id", quote.id);
-    if (error) return setMsg(error.message);
-    await refresh();
-  }
+  if (!quote) return;
+  setMsg("");
+
+  const { error } = await supabase
+    .from("project_quotes")
+    .update({
+      recommended_total: patch.recommended_total,
+      note: patch.note,
+    })
+    .eq("id", quote.id);
+
+  if (error) return setMsg(error.message);
+
+  // ✅ 本地更新，不刷新整页
+  setQuote((prev) => (prev ? { ...prev, ...patch } as any : prev));
+}
 
   // --- Payments ---
   async function updatePayment(id: string, patch: Partial<Payment>) {
-    setMsg("");
-    const { error } = await supabase
-      .from("project_quote_payments")
-      .update({
-        title: patch.title,
-        due_date: patch.due_date,
-        percent: patch.percent,
-        paid: patch.paid,
-      })
-      .eq("id", id);
+  setMsg("");
 
-    if (error) return setMsg(error.message);
-    await refresh(); // amount 由 DB 按 total * percent 算
+  const { error } = await supabase
+    .from("project_quote_payments")
+    .update({
+      title: patch.title,
+      due_date: patch.due_date,
+      percent: patch.percent,
+      paid: patch.paid,
+    })
+    .eq("id", id);
+
+  if (error) return setMsg(error.message);
+
+  // ✅ 本地更新
+  setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } as any : p)));
+
+  // ✅ 只有 percent 会影响 amount（DB算），才刷新拿新 amount
+  if (patch.percent !== undefined) {
+    await refresh();
   }
+}
 
     async function uploadPhoto(file: File) {
     if (!quote) return;
@@ -336,15 +358,18 @@ if (paths.length) {
   }
 
   async function updatePhotoCaption(id: string, caption: string | null) {
-    setMsg("");
-    const { error } = await supabase
-      .from("project_quote_photos")
-      .update({ caption })
-      .eq("id", id);
+  setMsg("");
 
-    if (error) return setMsg(error.message);
-    await refresh();
-  }
+  const { error } = await supabase
+    .from("project_quote_photos")
+    .update({ caption })
+    .eq("id", id);
+
+  if (error) return setMsg(error.message);
+
+  // ✅ 本地更新，不刷新
+  setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, caption } : p)));
+}
 
   async function deletePhoto(id: string, storage_path: string) {
     setMsg("");
@@ -372,7 +397,7 @@ if (paths.length) {
     return (
       <div className="bg-white border rounded-2xl p-4">
         <div className="text-lg font-bold">P2 量尺报价</div>
-        <div className="mt-2 text-sm opacity-70">加载中...</div>
+        <div className="mt-2 text-sm opacity-90">加载中...</div>
       </div>
     );
   }
@@ -381,7 +406,7 @@ if (paths.length) {
     return (
       <div className="bg-white border rounded-2xl p-4">
         <div className="text-lg font-bold">P2 量尺报价</div>
-        <div className="mt-2 text-sm opacity-70">
+        <div className="mt-2 text-sm opacity-90">
           先初始化报价：创建该项目的报价记录 + 默认4笔付款计划。
         </div>
 
@@ -422,10 +447,10 @@ async function confirmToP3() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-lg font-bold">P2 量尺报价</div>
-            <div className="text-xs opacity-60">总价由数据库自动计算（不靠前端）</div>
+            <div className="text-xs opacity-80">总价由数据库自动计算（不靠前端）</div>
           </div>
           <div className="text-right">
-            <div className="text-xs opacity-60">总价</div>
+            <div className="text-xs opacity-80">总价</div>
             <div className="text-2xl font-bold">NZD {Number(quote.total_amount || 0).toFixed(2)}</div>
           </div>
         </div>
@@ -442,7 +467,7 @@ async function confirmToP3() {
               onBlur={(e) => updateQuote({ recommended_total: n(e.target.value) })}
               placeholder="例如 25000"
             />
-            <div className="mt-1 text-xs opacity-60">失焦自动保存</div>
+            <div className="mt-1 text-xs opacity-80">失焦自动保存</div>
           </div>
 
           <div>
@@ -453,7 +478,7 @@ async function confirmToP3() {
               onBlur={(e) => updateQuote({ note: e.target.value || null })}
               placeholder="选填：报价说明"
             />
-            <div className="mt-1 text-xs opacity-60">失焦自动保存</div>
+            <div className="mt-1 text-xs opacity-80">失焦自动保存</div>
           </div>
         </div>
       </div>
@@ -470,7 +495,7 @@ async function confirmToP3() {
 />
         </div>
 
-        <div className="mt-2 text-xs opacity-60">
+        <div className="mt-2 text-xs opacity-80">
           手机可直接拍照上传。每张图可写备注，支持删除。
         </div>
 
@@ -505,7 +530,7 @@ async function confirmToP3() {
           ))}
 
           {photos.length === 0 && (
-            <div className="text-sm opacity-70">暂无照片，点右上角“上传照片”。</div>
+            <div className="text-sm opacity-90">暂无照片，点右上角“上传照片”。</div>
           )}
         </div>
       </div>
@@ -546,7 +571,7 @@ async function confirmToP3() {
 
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs opacity-60">数量</div>
+                  <div className="text-xs opacity-80">数量</div>
                   <input
                     inputMode="decimal"
                     className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
@@ -555,7 +580,7 @@ async function confirmToP3() {
                   />
                 </div>
                 <div>
-                  <div className="text-xs opacity-60">单价</div>
+                  <div className="text-xs opacity-80">单价</div>
                   <input
                     inputMode="decimal"
                     className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
@@ -572,7 +597,7 @@ async function confirmToP3() {
           ))}
 
           {items.length === 0 && (
-            <div className="text-sm opacity-70">暂无分项，点右上角“添加分项”。</div>
+            <div className="text-sm opacity-90">暂无分项，点右上角“添加分项”。</div>
           )}
         </div>
       </div>
@@ -580,7 +605,7 @@ async function confirmToP3() {
       {/* 付款计划 */}
       <div className="bg-white border rounded-2xl p-4">
         <div className="font-bold">付款计划（默认4笔）</div>
-        <div className="mt-2 text-xs opacity-60">
+        <div className="mt-2 text-xs opacity-80">
           金额由数据库自动算：amount = total_amount × percent
         </div>
 
@@ -601,7 +626,7 @@ async function confirmToP3() {
 
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs opacity-60">名称</div>
+                  <div className="text-xs opacity-80">名称</div>
                   <input
                     className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
                     defaultValue={p.title}
@@ -609,7 +634,7 @@ async function confirmToP3() {
                   />
                 </div>
                 <div>
-                  <div className="text-xs opacity-60">到期日</div>
+                  <div className="text-xs opacity-80">到期日</div>
                   <input
                     type="date"
                     className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
@@ -621,7 +646,7 @@ async function confirmToP3() {
 
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs opacity-60">比例 %</div>
+                  <div className="text-xs opacity-80">比例 %</div>
                   <input
                     inputMode="decimal"
                     className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
@@ -630,7 +655,7 @@ async function confirmToP3() {
                   />
                 </div>
                 <div>
-                  <div className="text-xs opacity-60">金额（DB算）</div>
+                  <div className="text-xs opacity-80">金额（DB算）</div>
                   <div className="mt-1 w-full border rounded-xl px-3 py-2 text-sm bg-gray-50">
                     NZD {Number(p.amount || 0).toFixed(2)}
                   </div>
@@ -645,12 +670,12 @@ async function confirmToP3() {
           <span className={percentSum === 100 ? "font-bold" : "font-bold text-red-600"}>
             {percentSum.toFixed(2)}%
           </span>
-          <span className="text-xs opacity-60 ml-2">（建议=100%）</span>
+          <span className="text-xs opacity-80 ml-2">（建议=100%）</span>
         </div>
       </div>
       <div className="bg-white border rounded-2xl p-4">
   <div className="font-bold">阶段确认</div>
-  <div className="mt-2 text-sm opacity-70">
+  <div className="mt-2 text-sm opacity-90">
     点击后进入 P3（施工进场/材料准备），首页颜色会随阶段变化。
   </div>
 
