@@ -63,7 +63,7 @@ export default function ProjectsHome() {
         <div className="p-4 flex items-center justify-between gap-3">
           <div>
             <div className="text-lg font-bold">项目</div>
-            <div className="text-xs opacity-60">共 {filtered.length} 个</div>
+            <div className="text-xs opacity-90">共 {filtered.length} 个</div>
           </div>
           <a
             className="px-3 py-2 rounded-lg bg-black text-white text-sm"
@@ -114,7 +114,7 @@ export default function ProjectsHome() {
                 <div className="flex items-start justify-between gap-3">
   <div className="font-bold text-base leading-snug">
     {p.client_name}
-    <div className="font-normal text-sm opacity-70 mt-1">
+    <div className="font-normal text-sm opacity-80 mt-1">
       {p.address}
     </div>
   </div>
@@ -125,7 +125,7 @@ export default function ProjectsHome() {
 </div>
 
                 {/* 第二行：来源/日期 */}
-                <div className="mt-3 text-xs opacity-70 flex flex-wrap gap-x-3 gap-y-1">
+                <div className="mt-3 text-xs opacity-80 flex flex-wrap gap-x-3 gap-y-1">
                   <span>来源：{p.source || "-"}</span>
                   <span>日期：{p.created_date}</span>
                 </div>
@@ -141,7 +141,7 @@ export default function ProjectsHome() {
                     </span>
                   ))}
                   {(p.target_areas || []).length > 4 && (
-                    <span className="text-xs opacity-60">
+                    <span className="text-xs opacity-80">
                       +{(p.target_areas || []).length - 4}
                     </span>
                   )}
@@ -149,7 +149,7 @@ export default function ProjectsHome() {
 
                 {/* 备注（最多一行） */}
                 {p.note && (
-                  <div className="mt-3 text-sm opacity-70 line-clamp-1">
+                  <div className="mt-3 text-sm opacity-90 line-clamp-1">
                     {p.note}
                   </div>
                 )}
@@ -164,7 +164,7 @@ export default function ProjectsHome() {
         })}
 
         {filtered.length === 0 && (
-          <div className="opacity-70 mt-6">暂无项目，点右上角“新建”。</div>
+          <div className="opacity-90 mt-6">暂无项目，点右上角“新建”。</div>
         )}
       </div>
     </main>

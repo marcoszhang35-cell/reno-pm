@@ -142,8 +142,8 @@ export default function ProjectDetailPage() {
         {/* 头部摘要卡片（手机友好，一眼看项目） */}
         <div className="bg-white border rounded-2xl p-4">
           <div className="text-xl font-bold">{project.client_name}</div>
-          <div className="mt-1 text-sm opacity-70">{project.address}</div>
-          <div className="mt-3 text-xs opacity-70 flex flex-wrap gap-x-3 gap-y-1">
+          <div className="mt-1 text-sm opacity-90">{project.address}</div>
+          <div className="mt-3 text-xs opacity-90 flex flex-wrap gap-x-3 gap-y-1">
             <span>来源：{project.source || "-"}</span>
             <span>日期：{project.created_date}</span>
             <span>ID：{project.id.slice(0, 8)}...</span>
@@ -172,7 +172,7 @@ export default function ProjectDetailPage() {
               </button>
             )}
           </div>
-          <div className="mt-2 text-xs opacity-60">
+          <div className="mt-2 text-xs opacity-80">
             当前阶段 code：{project.stage}
           </div>
         </div>

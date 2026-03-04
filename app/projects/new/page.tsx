@@ -118,7 +118,7 @@ export default function NewProjectPage() {
         <div>
           <a className="underline" href="/projects">← 返回项目首页</a>
           <h1 className="text-2xl font-bold mt-3">新建项目</h1>
-          <p className="opacity-70 mt-1">第 1 部分：来源、地址、客户、日期、备注、目标区域</p>
+          <p className="opacity-90 mt-1">第 1 部分：来源、地址、客户、日期、备注、目标区域</p>
         </div>
       </div>
 
@@ -198,7 +198,7 @@ export default function NewProjectPage() {
             <div>
               <label className="text-sm font-medium">当前阶段</label>
               <input
-                className="mt-1 w-full border rounded px-3 py-2 opacity-70"
+                className="mt-1 w-full border rounded px-3 py-2 opacity-90"
                 value="P1_NEW（新建项目）"
                 disabled
               />

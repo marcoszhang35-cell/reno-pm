@@ -86,7 +86,7 @@ export default function P1Form({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-lg font-bold">P1 新建项目</div>
-            <div className="text-xs opacity-60">这里可以随时修改并保存</div>
+            <div className="text-xs opacity-80">这里可以随时修改并保存</div>
           </div>
           <span className={`${meta.color} text-white text-xs px-2 py-1 rounded-full`}>
             {meta.label}
@@ -192,7 +192,7 @@ export default function P1Form({
         <button
           onClick={save}
           disabled={saving}
-          className="w-full px-4 py-3 rounded-xl bg-black text-white font-medium disabled:opacity-60"
+          className="w-full px-4 py-3 rounded-xl bg-black text-white font-medium disabled:opacity-80"
         >
           {saving ? "保存中..." : "保存 P1 信息"}
         </button>
