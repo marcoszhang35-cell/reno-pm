@@ -439,10 +439,10 @@ async function confirmToP3() {
         <div className="flex items-center justify-between">
           <div className="font-bold">量尺 / 现场照片</div>
 
-          <PhotoPicker
+         <PhotoPicker
   cameraLabel="+ 拍照"
   galleryLabel="+ 从图库选择"
-  onPick={(file) => uploadQuotePhoto(file)}
+  onPick={(file) => uploadPhoto(file)}
 />
         </div>
 
@@ -565,11 +565,14 @@ async function confirmToP3() {
             <div key={p.id} className="border rounded-2xl p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-bold">第 {p.seq} 笔</div>
-                <PhotoPicker
-  cameraLabel="+ 拍照"
-  galleryLabel="+ 从图库选择"
-  onPick={(file) => uploadPhoto(file)}
-/>
+                <label className="text-sm flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={!!p.paid}
+                    onChange={(e) => updatePayment(p.id, { paid: e.target.checked })}
+                  />
+                  已支付
+                </label>
               </div>
 
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
