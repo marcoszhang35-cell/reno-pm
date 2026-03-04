@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PhotoPicker from "@/components/PhotoPicker";
+import { pdf } from "@react-pdf/renderer";
+import QuotePdfDoc from "@/components/QuotePdfDoc";
 
 type Quote = {
   id: string;
@@ -248,6 +250,27 @@ if (paths.length) {
     await refresh();
   }
 
+  async function exportQuotePdf() {
+  if (!quote) return;
+
+  const blob = await pdf(
+    <QuotePdfDoc
+      projectName={"" /* 可传 project.client_name */}
+      projectAddress={"" /* 可传 project.address */}
+      quote={quote}
+      items={items}
+      payments={payments}
+    />
+  ).toBlob();
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `quote-${projectId}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
   // --- Quote fields ---
   async function updateQuote(patch: Partial<Quote>) {
     if (!quote) return;
@@ -363,6 +386,7 @@ if (paths.length) {
         </div>
 
         {msg && <div className="mt-3 text-sm text-red-600">{msg}</div>}
+
 
         <button
           onClick={initQuote}
@@ -629,6 +653,13 @@ async function confirmToP3() {
   <div className="mt-2 text-sm opacity-70">
     点击后进入 P3（施工进场/材料准备），首页颜色会随阶段变化。
   </div>
+
+<button
+  onClick={exportQuotePdf}
+  className="px-3 py-2 rounded-xl border text-sm"
+>
+  导出报价PDF
+</button>
 
   <button
     onClick={confirmToP3}
