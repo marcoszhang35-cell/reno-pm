@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import PhotoPicker from "@/components/PhotoPicker";
 
 type MaterialRow = {
   id: string;
@@ -312,20 +313,11 @@ export default function P3Materials({
             <div className="text-xs opacity-60 mt-1">先拍照上传也可以，后面再归类到具体材料。</div>
           </div>
 
-          <label className="shrink-0 px-3 py-2 rounded-xl bg-black text-white text-sm cursor-pointer">
-            + 拍照/上传
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadMaterialPhoto(f, null);
-                e.currentTarget.value = "";
-              }}
-            />
-          </label>
+          <PhotoPicker
+  cameraLabel="+ 拍照"
+  galleryLabel="+ 从图库选择"
+  onPick={(file) => uploadMaterialPhoto(file, null)}
+/>
         </div>
 
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">

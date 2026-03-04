@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import PhotoPicker from "@/components/PhotoPicker";
 
 type WorkItem = {
   id: string;
@@ -276,20 +277,7 @@ export default function P4Construction({
             <div className="text-xs opacity-60 mt-1">先拍了再说，不绑定任何记录也可以。</div>
           </div>
 
-          <label className="shrink-0 px-3 py-2 rounded-xl bg-black text-white text-sm cursor-pointer">
-            + 拍照/上传
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadWorkPhoto(f, null);
-                e.currentTarget.value = "";
-              }}
-            />
-          </label>
+          <PhotoPicker onPick={(file) => uploadWorkPhoto(file, null)} />
         </div>
 
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
