@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import PhotoPicker from "@/components/PhotoPicker";
 
 type Quote = {
   id: string;
@@ -438,20 +439,11 @@ async function confirmToP3() {
         <div className="flex items-center justify-between">
           <div className="font-bold">量尺 / 现场照片</div>
 
-          <label className="px-3 py-2 rounded-xl bg-black text-white text-sm cursor-pointer">
-            + 上传照片
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadPhoto(f);
-                e.currentTarget.value = "";
-              }}
-            />
-          </label>
+          <PhotoPicker
+  cameraLabel="+ 拍照"
+  galleryLabel="+ 从图库选择"
+  onPick={(file) => uploadQuotePhoto(file)}
+/>
         </div>
 
         <div className="mt-2 text-xs opacity-60">
@@ -573,14 +565,11 @@ async function confirmToP3() {
             <div key={p.id} className="border rounded-2xl p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-bold">第 {p.seq} 笔</div>
-                <label className="text-sm flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!p.paid}
-                    onChange={(e) => updatePayment(p.id, { paid: e.target.checked })}
-                  />
-                  已支付
-                </label>
+                <PhotoPicker
+  cameraLabel="+ 拍照"
+  galleryLabel="+ 从图库选择"
+  onPick={(file) => uploadPhoto(file)}
+/>
               </div>
 
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
