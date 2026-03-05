@@ -22,6 +22,14 @@ export default function ProjectsHome() {
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [msg, setMsg] = useState("");
+  const STAGE_FILTERS = [
+  { key: "ALL", label: "全部", value: "ALL" },
+  { key: "P1_NEW", label: "新建", value: "P1_NEW" },
+  { key: "P2_MEASURE_QUOTE", label: "量尺报价", value: "P2_MEASURE_QUOTE" },
+  { key: "P3_SITE", label: "进场材料", value: "P3_SITE" },
+  { key: "P4_CONSTRUCTION", label: "施工中", value: "P4_CONSTRUCTION" },
+  { key: "CLOSED", label: "已关闭", value: "CLOSED" },
+] as const;
 
   async function load() {
     setMsg("");
@@ -42,22 +50,25 @@ export default function ProjectsHome() {
   }, []);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return projects;
-    return projects.filter((p) => {
-      const text = [
-        p.client_name,
-        p.address,
-        p.source || "",
-        p.stage,
-        (p.target_areas || []).join(","),
-        p.note || "",
-      ]
-        .join(" ")
-        .toLowerCase();
-      return text.includes(s);
-    });
-  }, [projects, q]);
+  let list = projects;
+
+  // ✅ 1) 阶段筛选（最关键）
+  if (stageFilter !== "ALL") {
+    list = list.filter((p) => p.stage === stageFilter);
+  }
+
+  // ✅ 2) 搜索筛选（如果你有搜索框）
+  const kw = (q || "").trim().toLowerCase();
+  if (kw) {
+    list = list.filter((p) =>
+      `${p.client_name ?? ""} ${p.address ?? ""} ${p.note ?? ""} ${p.source ?? ""}`
+        .toLowerCase()
+        .includes(kw)
+    );
+  }
+
+  return list;
+}, [projects, stageFilter, q]);
   
   const filteredProjects = useMemo(() => {
   let list = projects;
@@ -162,6 +173,7 @@ export default function ProjectsHome() {
         </div>
       </div>
 
+<div className="text-xs opacity-60">当前筛选：{stageFilter}</div>
       
 
       {msg && <p className="px-4 pt-4 text-red-600">{msg}</p>}
