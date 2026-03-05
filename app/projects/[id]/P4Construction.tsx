@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PhotoPicker from "@/components/PhotoPicker";
 
@@ -24,6 +24,10 @@ type WorkPhoto = {
   created_at: string;
 };
 
+export type P4Handle = {
+  flushAll: () => Promise<void>;
+};
+
 const TRADES: { key: string; label: string }[] = [
   { key: "DEMOLITION", label: "拆除" },
   { key: "PLUMBING", label: "水工" },
@@ -38,13 +42,8 @@ function extFromName(name: string) {
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg";
 }
 
-export default function P4Construction({
-  projectId,
-  onChanged,
-}: {
-  projectId: string;
-  onChanged?: () => void;
-}) {
+const P4Construction = forwardRef<P4Handle, { projectId: string; onChanged?: () => void }>(
+  function P4Construction({ projectId, onChanged }, ref) {
   const [msg, setMsg] = useState("");
   const [items, setItems] = useState<WorkItem[]>([]);
   const [photos, setPhotos] = useState<WorkPhoto[]>([]);
@@ -52,6 +51,8 @@ export default function P4Construction({
   const [loading, setLoading] = useState(false);
 
   const refreshLock = useRef(false);
+  // ====== 只在 onBlur / 下一步保存 WorkItem ======
+  const pendingItemPatchRef = useRef<Record<string, Partial<WorkItem>>>({});
 
   const itemsByTrade = useMemo(() => {
     const map: Record<string, WorkItem[]> = {};
@@ -158,13 +159,36 @@ export default function P4Construction({
     onChanged?.();
   }
 
-  async function updateWorkItem(id: string, patch: Partial<WorkItem>) {
+    function updateWorkItemLocal(id: string, patch: Partial<WorkItem>) {
+    // 1) 本地立即更新，输入不卡
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+
+    // 2) 记录待保存 patch（合并）
+    pendingItemPatchRef.current[id] = { ...(pendingItemPatchRef.current[id] || {}), ...patch };
+  }
+
+  async function saveWorkItem(id: string) {
+    const patch = pendingItemPatchRef.current[id];
+    if (!patch || Object.keys(patch).length === 0) return;
+
+    delete pendingItemPatchRef.current[id];
+
     setMsg("");
     const { error } = await supabase.from("project_work_items").update(patch).eq("id", id);
     if (error) return setMsg(error.message);
-    await refresh();
-    onChanged?.();
+
+    // ✅ 不 refresh()，避免闪烁/变灰
   }
+
+  async function flushAllWorkItemEdits() {
+    const ids = Object.keys(pendingItemPatchRef.current);
+    for (const id of ids) {
+      await saveWorkItem(id);
+    }
+  }
+    useImperativeHandle(ref, () => ({
+    flushAll: flushAllWorkItemEdits,
+  }));
 
   async function deleteWorkItem(item: WorkItem) {
     setMsg("");
@@ -248,6 +272,7 @@ export default function P4Construction({
   async function closeProject() {
     setMsg("");
     setLoading(true);
+    await flushAllWorkItemEdits();
 
     const { error } = await supabase.from("projects").update({ stage: "CLOSED" }).eq("id", projectId);
 
@@ -342,63 +367,69 @@ export default function P4Construction({
                         <div>
                           <div className="text-xs opacity-90">团队名称</div>
                           <input
-                            value={it.team_name ?? ""}
-                            onChange={(e) => updateWorkItem(it.id, { team_name: e.target.value })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                            placeholder="例如：张三水工队"
-                          />
+  value={it.team_name ?? ""}
+  onChange={(e) => updateWorkItemLocal(it.id, { team_name: e.target.value })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+  placeholder="例如：张三水工队"
+/>
                         </div>
 
                         <div>
                           <div className="text-xs opacity-90">价格（NZD）</div>
                           <input
-                            type="number"
-                            value={it.price ?? 0}
-                            onChange={(e) => updateWorkItem(it.id, { price: Number(e.target.value || 0) })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                          />
+  type="number"
+  value={it.price ?? 0}
+  onChange={(e) => updateWorkItemLocal(it.id, { price: Number(e.target.value || 0) })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+/>
                         </div>
 
                         <div>
                           <div className="text-xs opacity-90">开始日期</div>
                           <input
-                            type="date"
-                            value={it.start_date ?? ""}
-                            onChange={(e) => updateWorkItem(it.id, { start_date: e.target.value || null })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                          />
+  type="date"
+  value={it.start_date ?? ""}
+  onChange={(e) => updateWorkItemLocal(it.id, { start_date: e.target.value || null })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+/>
                         </div>
 
                         <div>
                           <div className="text-xs opacity-90">结束日期</div>
                           <input
-                            type="date"
-                            value={it.end_date ?? ""}
-                            onChange={(e) => updateWorkItem(it.id, { end_date: e.target.value || null })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                          />
+  type="date"
+  value={it.end_date ?? ""}
+  onChange={(e) => updateWorkItemLocal(it.id, { end_date: e.target.value || null })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+/>
                         </div>
 
                         <div className="sm:col-span-2">
                           <div className="text-xs opacity-90">工期（天，可选）</div>
                           <input
-                            type="number"
-                            value={it.days ?? ""}
-                            onChange={(e) => updateWorkItem(it.id, { days: e.target.value ? Number(e.target.value) : null })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                            placeholder="例如：3"
-                          />
+  type="number"
+  value={it.days ?? ""}
+  onChange={(e) => updateWorkItemLocal(it.id, { days: e.target.value ? Number(e.target.value) : null })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+  placeholder="例如：3"
+/>
                         </div>
 
                         <div className="sm:col-span-2">
                           <div className="text-xs opacity-90">备注</div>
                           <textarea
-                            value={it.note ?? ""}
-                            onChange={(e) => updateWorkItem(it.id, { note: e.target.value })}
-                            className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                            rows={3}
-                            placeholder="例如：防水做了2遍，24小时闭水"
-                          />
+  value={it.note ?? ""}
+  onChange={(e) => updateWorkItemLocal(it.id, { note: e.target.value })}
+  onBlur={() => saveWorkItem(it.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+  rows={3}
+  placeholder="例如：防水做了2遍，24小时闭水"
+/>
                         </div>
                       </div>
 
@@ -467,4 +498,7 @@ export default function P4Construction({
       </div>
     </div>
   );
-}
+  }
+);
+
+export default P4Construction;

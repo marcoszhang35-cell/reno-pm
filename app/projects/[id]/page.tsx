@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { STAGES, stageMeta } from "@/config/options";
@@ -8,6 +8,8 @@ import P1Form from "./P1Form";
 import P2Bootstrap from "./P2Bootstrap";
 import P3Materials from "./P3Materials";
 import P4Construction from "./P4Construction";
+import type { P3Handle } from "./P3Materials";
+import type { P4Handle } from "./P4Construction";
 
 type Project = {
   id: string;
@@ -38,6 +40,8 @@ function stageNext(current: string) {
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("P1");
+  const p3Ref = useRef<P3Handle | null>(null);
+  const p4Ref = useRef<P4Handle | null>(null);
   function stageToTab(stage?: string): (typeof TABS)[number]["key"] {
   switch (stage) {
     case "P1_NEW":
@@ -92,11 +96,22 @@ export default function ProjectDetailPage() {
   const meta = useMemo(() => stageMeta(project?.stage || "P1_NEW"), [project?.stage]);
   const ns = useMemo(() => (project ? stageNext(project.stage) : null), [project]);
 
-  async function setStage(stage: string) {
+    async function setStage(stage: string) {
     if (!project) return;
     setMsg("");
+
+    // ✅ 在切阶段前，先把当前页未 blur 的编辑保存掉
+    try {
+      if (tab === "P3") await p3Ref.current?.flushAll();
+      if (tab === "P4") await p4Ref.current?.flushAll();
+    } catch (e: any) {
+      // 如果保存报错，先提示，不切阶段
+      return setMsg(e?.message || "保存失败，请重试");
+    }
+
     const { error } = await supabase.from("projects").update({ stage }).eq("id", project.id);
     if (error) return setMsg(error.message);
+
     await load();
   }
 
@@ -182,9 +197,9 @@ export default function ProjectDetailPage() {
 
         {tab === "P2" && <P2Bootstrap projectId={project.id} onDone={load} />}
 
-       {tab === "P3" && <P3Materials projectId={project.id} onChanged={load} />}
-
-        {tab === "P4" && <P4Construction projectId={project.id} onChanged={load} />}
+       {tab === "P3" && <P3Materials ref={p3Ref} projectId={project.id} onChanged={load} />}
+       
+       {tab === "P4" && <P4Construction ref={p4Ref} projectId={project.id} onChanged={load} />}
       </div>
     </main>
   );

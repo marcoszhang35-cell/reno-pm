@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PhotoPicker from "@/components/PhotoPicker";
 
@@ -21,18 +21,17 @@ type PhotoRow = {
   created_at: string;
 };
 
+export type P3Handle = {
+  flushAll: () => Promise<void>;
+};
+
 function extFromName(name: string) {
   const parts = name.split(".");
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg";
 }
 
-export default function P3Materials({
-  projectId,
-  onChanged,
-}: {
-  projectId: string;
-  onChanged?: () => void;
-}) {
+const P3Materials = forwardRef<P3Handle, { projectId: string; onChanged?: () => void }>(
+  function P3Materials({ projectId, onChanged }, ref) {
   const [msg, setMsg] = useState("");
   const [startDate, setStartDate] = useState<string>("");
   const [rows, setRows] = useState<MaterialRow[]>([]);
@@ -55,6 +54,7 @@ export default function P3Materials({
       map[key].push(ph);
     }
     return map;
+    
   }, [photos]);
 
   async function refresh() {
@@ -180,6 +180,9 @@ export default function P3Materials({
       await saveRow(id);
     }
   }
+    useImperativeHandle(ref, () => ({
+    flushAll: flushAllMaterialEdits,
+  }));
 
   async function removeRow(id: string) {
     setMsg("");
@@ -533,4 +536,7 @@ export default function P3Materials({
       </div>
     </div>
   );
-}
+ }
+);
+
+export default P3Materials;
