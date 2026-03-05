@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { stageMeta } from "@/config/options";
+import { STAGES, stageMeta } from "@/config/options";
+
+
 
 type Project = {
   id: string;
@@ -18,6 +20,7 @@ type Project = {
 export default function ProjectsHome() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [q, setQ] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [msg, setMsg] = useState("");
 
   async function load() {
@@ -55,6 +58,29 @@ export default function ProjectsHome() {
       return text.includes(s);
     });
   }, [projects, q]);
+  
+  const filteredProjects = useMemo(() => {
+  let list = projects;
+
+  // 1) 阶段筛选
+  if (stageFilter !== "ALL") {
+    list = list.filter((p) => p.stage === stageFilter);
+  }
+
+  // 2) 搜索（如果你已有搜索，这段按你现有逻辑融合）
+  const keyword = q?.trim().toLowerCase();
+  if (keyword) {
+    list = list.filter((p) => {
+      return (
+        (p.client_name || "").toLowerCase().includes(keyword) ||
+        (p.address || "").toLowerCase().includes(keyword) ||
+        (p.source || "").toLowerCase().includes(keyword)
+      );
+    });
+  }
+
+  return list;
+}, [projects, stageFilter, q]);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -72,6 +98,48 @@ export default function ProjectsHome() {
             + 新建
           </a>
         </div>
+
+        {/* 阶段筛选（手机可横向滚动） */}
+<div className="flex gap-2 overflow-x-auto pb-2">
+  <button
+    onClick={() => setStageFilter("ALL")}
+    className={
+      "px-3 py-2 rounded-full border text-sm whitespace-nowrap " +
+      (stageFilter === "ALL" ? "bg-black text-white border-black" : "bg-white")
+    }
+  >
+    全部
+  </button>
+
+  {STAGES.filter((s) => s.key !== "CLOSED").map((s) => {
+    const meta = stageMeta(s.key);
+    const active = stageFilter === s.key;
+
+    return (
+      <button
+        key={s.key}
+        onClick={() => setStageFilter(s.key)}
+        className={
+          "px-3 py-2 rounded-full border text-sm whitespace-nowrap flex items-center gap-2 " +
+          (active ? "bg-black text-white border-black" : "bg-white")
+        }
+      >
+        <span className={"inline-block w-2 h-2 rounded-full " + meta.color} />
+        {meta.label}
+      </button>
+    );
+  })}
+
+  <button
+    onClick={() => setStageFilter("CLOSED")}
+    className={
+      "px-3 py-2 rounded-full border text-sm whitespace-nowrap " +
+      (stageFilter === "CLOSED" ? "bg-black text-white border-black" : "bg-white")
+    }
+  >
+    已关闭
+  </button>
+</div>
 
         <div className="px-4 pb-4">
           <input
@@ -93,6 +161,8 @@ export default function ProjectsHome() {
           </div>
         </div>
       </div>
+
+      
 
       {msg && <p className="px-4 pt-4 text-red-600">{msg}</p>}
 
