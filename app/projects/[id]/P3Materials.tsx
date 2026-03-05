@@ -44,6 +44,8 @@ export default function P3Materials({
 
   // 防止 refresh 并发互相抢（你之前那个 AbortError 很像是并发触发造成的）
   const refreshLock = useRef(false);
+   // ====== 方案3：只在 onBlur / 下一步保存 ======
+  const pendingPatchRef = useRef<Record<string, Partial<MaterialRow>>>({});
 
   const photosByMaterial = useMemo(() => {
     const map: Record<string, PhotoRow[]> = {};
@@ -150,12 +152,33 @@ export default function P3Materials({
     onChanged?.();
   }
 
-  async function updateRow(id: string, patch: Partial<MaterialRow>) {
+    function updateRowLocal(id: string, patch: Partial<MaterialRow>) {
+    // 1) 立刻更新本地 rows，让输入不卡
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+    // 2) 记录待保存 patch（覆盖合并）
+    pendingPatchRef.current[id] = { ...(pendingPatchRef.current[id] || {}), ...patch };
+  }
+
+  async function saveRow(id: string) {
+    const patch = pendingPatchRef.current[id];
+    if (!patch || Object.keys(patch).length === 0) return;
+
+    // 先删缓存，避免重复提交
+    delete pendingPatchRef.current[id];
+
     setMsg("");
     const { error } = await supabase.from("project_materials").update(patch).eq("id", id);
     if (error) return setMsg(error.message);
-    await refresh();
-    onChanged?.();
+
+    // ✅ 不 refresh()，避免闪烁/变灰
+  }
+
+    async function flushAllMaterialEdits() {
+    const ids = Object.keys(pendingPatchRef.current);
+    for (const id of ids) {
+      await saveRow(id);
+    }
   }
 
   async function removeRow(id: string) {
@@ -185,6 +208,7 @@ export default function P3Materials({
   async function confirmToP4() {
     setMsg("");
     setLoading(true);
+    await flushAllMaterialEdits();
 
     const { error } = await supabase
       .from("projects")
@@ -389,11 +413,12 @@ export default function P3Materials({
                 {/* 标题 + 删除 */}
                 <div className="flex items-center justify-between gap-2">
                   <input
-                    value={r.name}
-                    onChange={(e) => updateRow(r.id, { name: e.target.value })}
-                    className="flex-1 border rounded-xl px-3 py-2 text-base"
-                    placeholder="品名"
-                  />
+  value={r.name}
+  onChange={(e) => updateRowLocal(r.id, { name: e.target.value })}
+  onBlur={() => saveRow(r.id)}
+  className="flex-1 border rounded-xl px-3 py-2 text-base"
+  placeholder="品名"
+/>
                   <button onClick={() => removeRow(r.id)} className="px-3 py-2 rounded-xl border text-sm">
                     删除
                   </button>
@@ -404,20 +429,22 @@ export default function P3Materials({
                   <div>
                     <div className="text-xs opacity-90">数量</div>
                     <input
-                      type="number"
-                      value={r.qty}
-                      onChange={(e) => updateRow(r.id, { qty: Number(e.target.value || 0) })}
-                      className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                    />
+  type="number"
+  value={r.qty}
+  onChange={(e) => updateRowLocal(r.id, { qty: Number(e.target.value || 0) })}
+  onBlur={() => saveRow(r.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+/>
                   </div>
                   <div>
                     <div className="text-xs opacity-90">单价</div>
                     <input
-                      type="number"
-                      value={r.unit_price}
-                      onChange={(e) => updateRow(r.id, { unit_price: Number(e.target.value || 0) })}
-                      className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-                    />
+  type="number"
+  value={r.unit_price}
+  onChange={(e) => updateRowLocal(r.id, { unit_price: Number(e.target.value || 0) })}
+  onBlur={() => saveRow(r.id)}
+  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
+/>
                   </div>
                 </div>
 
@@ -431,7 +458,7 @@ export default function P3Materials({
                     <PhotoPicker
   cameraLabel="+ 拍照"
   galleryLabel="+ 从图库选择"
-  onPick={(file) => uploadMaterialPhoto(file, null)}
+  onPick={(file) => uploadMaterialPhoto(file, r.id)}
 />
                   </div>
 
