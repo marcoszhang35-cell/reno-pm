@@ -16,6 +16,16 @@ type Project = {
   stage: string;
 };
 
+const STAGE_ORDER: Record<string, number> = {
+  P1_NEW: 1,
+  P2_MEASURE_QUOTE: 2,
+  PAY_PENDING: 3,
+  P3_SITE: 4,
+  P3_START_MATERIALS: 4,
+  P4_CONSTRUCTION: 5,
+  CLOSED: 99,
+};
+
 export default function ProjectsHome() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [q, setQ] = useState("");
@@ -128,28 +138,39 @@ export default function ProjectsHome() {
   }, [role]);
 
   const filtered = useMemo(() => {
-    let list = projects;
+  let list = [...projects];
 
-    if (stageFilter !== "ALL") {
-      list = list.filter((p) => p.stage === stageFilter);
+  if (stageFilter !== "ALL") {
+    list = list.filter((p) => p.stage === stageFilter);
+  }
+
+  const keyword = q.trim().toLowerCase();
+  if (keyword) {
+    list = list.filter((p) => {
+      return (
+        (p.client_name || "").toLowerCase().includes(keyword) ||
+        (p.address || "").toLowerCase().includes(keyword) ||
+        (p.source || "").toLowerCase().includes(keyword) ||
+        (p.note || "").toLowerCase().includes(keyword) ||
+        (p.stage || "").toLowerCase().includes(keyword) ||
+        (p.target_areas || []).join(" ").toLowerCase().includes(keyword)
+      );
+    });
+  }
+
+  list.sort((a, b) => {
+    const orderA = STAGE_ORDER[a.stage] ?? 999;
+    const orderB = STAGE_ORDER[b.stage] ?? 999;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
     }
 
-    const keyword = q.trim().toLowerCase();
-    if (keyword) {
-      list = list.filter((p) => {
-        return (
-          (p.client_name || "").toLowerCase().includes(keyword) ||
-          (p.address || "").toLowerCase().includes(keyword) ||
-          (p.source || "").toLowerCase().includes(keyword) ||
-          (p.note || "").toLowerCase().includes(keyword) ||
-          (p.stage || "").toLowerCase().includes(keyword) ||
-          (p.target_areas || []).join(" ").toLowerCase().includes(keyword)
-        );
-      });
-    }
+    return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+  });
 
-    return list;
-  }, [projects, stageFilter, q]);
+  return list;
+}, [projects, stageFilter, q]);
 
   function getStagePillClass(stage: string, active = false) {
     switch (stage) {

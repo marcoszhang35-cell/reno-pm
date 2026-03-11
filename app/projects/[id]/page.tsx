@@ -229,6 +229,7 @@ export default function ProjectDetailPage() {
   }, [role]);
 
   const isWorker = role === "worker";
+  const isBoss = role === "boss";
 
   async function flushCurrentPageBeforeStageAction() {
     if (tab === "P1") {
@@ -289,6 +290,49 @@ export default function ProjectDetailPage() {
 
     await reloadProjectOnly(project.id);
   }
+
+  async function handleDeleteProject() {
+  if (!project || role !== "boss") return;
+
+  const ok = window.confirm(
+    `确认删除整个项目？\n\n客户：${project.client_name}\n地址：${project.address}\n\n这会删除报价、付款、材料、施工、照片和日志。\n\n此操作不可恢复。`
+  );
+
+  if (!ok) return;
+
+  setMsg("");
+
+  try {
+    const { data: sessionRes } = await supabase.auth.getSession();
+    const accessToken = sessionRes.session?.access_token;
+
+    if (!accessToken) {
+      setMsg("未登录或登录已过期");
+      return;
+    }
+
+    const res = await fetch("/api/projects/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ projectId: project.id }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      setMsg(json?.error || "删除失败");
+      return;
+    }
+
+    window.location.href = "/projects";
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "删除失败";
+    setMsg(message);
+  }
+}
 
   async function saveAndSetCurrentStage() {
     if (!project || isWorker) return;
@@ -526,6 +570,8 @@ export default function ProjectDetailPage() {
                 >
                   完工关闭
                 </button>
+
+                
               )}
             </div>
 
@@ -534,6 +580,17 @@ export default function ProjectDetailPage() {
             </div>
           </section>
         )}
+
+        {isBoss && (
+  <div className="mt-4">
+    <button
+      onClick={handleDeleteProject}
+      className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 font-medium text-red-200 transition hover:bg-red-400/15"
+    >
+      删除整个项目
+    </button>
+  </div>
+)}
       </div>
     </main>
   );
