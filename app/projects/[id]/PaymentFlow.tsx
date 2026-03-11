@@ -30,7 +30,7 @@ type ProjectApproval = {
   special_approval_note: string | null;
 };
 
-function n(v: any) {
+function n(v: unknown) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
 }
@@ -43,6 +43,18 @@ function extFromName(name: string) {
 function money(v: number) {
   return `NZD ${Number(v || 0).toFixed(2)}`;
 }
+
+const inputCls =
+  "w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40";
+
+const inputSmCls =
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40";
+
+const ghostBtnCls =
+  "rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10";
+
+const dangerBtnCls =
+  "rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-200 transition hover:bg-red-400/15";
 
 export default function PaymentFlow({
   projectId,
@@ -156,7 +168,7 @@ export default function PaymentFlow({
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -427,9 +439,6 @@ export default function PaymentFlow({
   }
 
   const subtotal = Number(quote?.total_amount || 0);
-  const gst = subtotal * 0.15;
-  const totalIncl = subtotal + gst;
-
   const percentSum = useMemo(
     () => payments.reduce((s, p) => s + Number(p.percent || 0), 0),
     [payments]
@@ -451,14 +460,18 @@ export default function PaymentFlow({
   }, [vouchers]);
 
   if (loading) {
-    return <div className="rounded-2xl border bg-white p-4">加载中...</div>;
+    return (
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 text-white shadow-2xl backdrop-blur-xl">
+        加载中...
+      </div>
+    );
   }
 
   if (!quote) {
     return (
-      <div className="rounded-2xl border bg-white p-4">
-        <div className="font-bold">付款流程</div>
-        <div className="mt-2 text-sm opacity-80">
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="text-lg font-semibold text-white">付款流程</div>
+        <div className="mt-2 text-sm text-white/70">
           请先在 P2 报价页初始化报价并录入小项目。
         </div>
       </div>
@@ -466,8 +479,12 @@ export default function PaymentFlow({
   }
 
   return (
-    <div className="space-y-4">
-      {msg && <div className="text-sm text-red-600">{msg}</div>}
+    <div className="space-y-6">
+      {msg && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+          {msg}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 p-6 text-white shadow-lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -495,23 +512,27 @@ export default function PaymentFlow({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_360px]">
-        <div className="rounded-[28px] border bg-white p-5 shadow-sm">
-          <div className="font-semibold text-lg">付款总览</div>
+        <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="text-lg font-semibold text-white">付款总览</div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-neutral-50 px-4 py-4">
-              <div className="text-xs text-neutral-500">报价总价</div>
-              <div className="mt-1 text-lg font-semibold">{money(subtotal)}</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+              <div className="text-xs text-white/55">报价总价</div>
+              <div className="mt-1 text-lg font-semibold text-white">{money(subtotal)}</div>
             </div>
 
-            <div className="rounded-2xl bg-neutral-50 px-4 py-4">
-              <div className="text-xs text-neutral-500">付款比例合计</div>
-              <div className={`mt-1 text-lg font-semibold ${Math.abs(percentSum - 100) < 0.001 ? "" : "text-red-600"}`}>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+              <div className="text-xs text-white/55">付款比例合计</div>
+              <div
+                className={`mt-1 text-lg font-semibold ${
+                  Math.abs(percentSum - 100) < 0.001 ? "text-white" : "text-red-300"
+                }`}
+              >
                 {percentSum.toFixed(2)}%
               </div>
             </div>
 
-            <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white">
+            <div className="rounded-2xl bg-[#081633] px-4 py-4 text-white">
               <div className="text-xs text-white/70">已支付节点</div>
               <div className="mt-1 text-lg font-semibold">
                 {paidCount} / {payments.length}
@@ -519,35 +540,72 @@ export default function PaymentFlow({
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
-            说明：此处“报价总价”读取的是 <span className="font-medium">project_quotes.total_amount</span>。  
+          <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-3 text-sm text-white/60">
+            说明：此处“报价总价”读取的是 <span className="font-medium">project_quotes.total_amount</span>。
             你当前 P2 页最好把含税总价同步写入这个字段，这样这里显示才会最准。
           </div>
         </div>
 
-        
+        <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="text-lg font-semibold text-white">下一步 / 特批</div>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <div className="text-xs text-white/55">特批状态</div>
+              <div className="mt-1 text-sm font-medium text-white">
+                {specialApproved ? "已特批" : "未特批"}
+              </div>
+              {specialApprovalNote ? (
+                <div className="mt-2 text-xs text-white/45">原因：{specialApprovalNote}</div>
+              ) : null}
+            </div>
+
+            {!specialApproved ? (
+              <button
+                onClick={specialApprove}
+                className="w-full rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-200 transition hover:bg-amber-400/15"
+              >
+                特批付款比例不足
+              </button>
+            ) : (
+              <button
+                onClick={cancelSpecialApprove}
+                className="w-full rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-200 transition hover:bg-red-400/15"
+              >
+                取消特批
+              </button>
+            )}
+
+            <button
+              onClick={confirmToP3}
+              className="w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:opacity-95"
+            >
+              确认进入 P3
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-[28px] border bg-white p-5 shadow-sm">
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xl font-semibold">付款节点</div>
-            <div className="mt-1 text-sm text-neutral-500">
+            <div className="text-xl font-semibold text-white">付款节点</div>
+            <div className="mt-1 text-sm text-white/55">
               可自由调整为一次、两次、三次或更多。
             </div>
           </div>
 
           <button
             onClick={addPaymentRow}
-            className="rounded-2xl bg-black px-4 py-3 text-sm font-medium text-white"
+            className="rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:opacity-95"
           >
             + 添加付款节点
           </button>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           {payments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-neutral-300 px-4 py-8 text-center text-sm text-neutral-400">
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-center text-sm text-white/45">
               还没有付款节点，请先新增。
             </div>
           ) : (
@@ -555,56 +613,58 @@ export default function PaymentFlow({
               const rowVouchers = groupedVouchers[p.id] || [];
 
               return (
-                <div key={p.id} className="rounded-2xl border p-4">
+                <div
+                  key={p.id}
+                  className="rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-sm"
+                >
                   <div className="flex items-center justify-between">
-                    <div className="font-semibold">第 {p.seq} 笔</div>
-                    <button
-                      onClick={() => deletePayment(p.id)}
-                      className="rounded-xl border px-3 py-2 text-sm"
-                    >
+                    <div className="font-semibold text-white">第 {p.seq} 笔</div>
+                    <button onClick={() => deletePayment(p.id)} className={dangerBtnCls}>
                       删除
                     </button>
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>
-                      <div className="mb-2 text-xs opacity-80">名称</div>
+                      <div className="mb-2 text-xs text-white/55">名称</div>
                       <input
-                        className="w-full rounded-xl border px-3 py-3"
+                        className={inputCls}
                         defaultValue={p.title}
                         onBlur={(e) => updatePayment(p.id, { title: e.target.value })}
                       />
                     </div>
 
                     <div>
-                      <div className="mb-2 text-xs opacity-80">到期日</div>
+                      <div className="mb-2 text-xs text-white/55">到期日</div>
                       <input
                         type="date"
-                        className="w-full rounded-xl border px-3 py-3"
+                        className={inputCls}
                         defaultValue={p.due_date || ""}
-                        onBlur={(e) => updatePayment(p.id, { due_date: e.target.value || null })}
+                        onBlur={(e) =>
+                          updatePayment(p.id, { due_date: e.target.value || null })
+                        }
                       />
                     </div>
 
                     <div>
-                      <div className="mb-2 text-xs opacity-80">比例 %</div>
+                      <div className="mb-2 text-xs text-white/55">比例 %</div>
                       <input
                         inputMode="decimal"
-                        className="w-full rounded-xl border px-3 py-3"
+                        className={inputCls}
                         defaultValue={p.percent ?? 0}
                         onBlur={(e) => updatePayment(p.id, { percent: n(e.target.value) })}
                       />
                     </div>
 
                     <div>
-                      <div className="mb-2 text-xs opacity-80">金额（DB算）</div>
-                      <div className="rounded-xl border bg-neutral-50 px-3 py-3">
+                      <div className="mb-2 text-xs text-white/55">金额（DB算）</div>
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white">
                         {money(p.amount || 0)}
                       </div>
                     </div>
                   </div>
 
-                  <label className="mt-3 inline-flex items-center gap-2 text-sm">
+                  <label className="mt-4 inline-flex items-center gap-2 text-sm text-white/80">
                     <input
                       type="checkbox"
                       checked={!!p.paid}
@@ -613,8 +673,8 @@ export default function PaymentFlow({
                     已支付
                   </label>
 
-                  <div className="mt-3">
-                    <label className="inline-flex cursor-pointer rounded-2xl border px-4 py-2 text-sm">
+                  <div className="mt-4">
+                    <label className="inline-flex cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
                       上传此节点付款凭证
                       <input
                         type="file"
@@ -629,7 +689,10 @@ export default function PaymentFlow({
                   {rowVouchers.length > 0 ? (
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {rowVouchers.map((v) => (
-                        <div key={v.id} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+                        <div
+                          key={v.id}
+                          className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm"
+                        >
                           {voucherUrls[v.storage_path] ? (
                             <img
                               src={voucherUrls[v.storage_path]}
@@ -637,14 +700,14 @@ export default function PaymentFlow({
                               className="h-40 w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-40 items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+                            <div className="flex h-40 items-center justify-center bg-white/5 text-sm text-white/45">
                               图片加载中
                             </div>
                           )}
 
                           <div className="p-3">
                             <textarea
-                              className="min-h-[72px] w-full rounded-xl border px-3 py-2 text-sm"
+                              className="min-h-[72px] w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                               defaultValue={v.note || ""}
                               placeholder="凭证备注"
                               onBlur={(e) => updateVoucherNote(v.id, e.target.value || null)}
@@ -652,7 +715,7 @@ export default function PaymentFlow({
 
                             <button
                               onClick={() => deleteVoucher(v.id, v.storage_path)}
-                              className="mt-2 w-full rounded-xl border px-3 py-2 text-sm"
+                              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
                             >
                               删除凭证
                             </button>
@@ -668,9 +731,9 @@ export default function PaymentFlow({
         </div>
       </div>
 
-      <div className="rounded-[28px] border bg-white p-5 shadow-sm">
-        <div className="text-xl font-semibold">通用付款凭证</div>
-        <div className="mt-1 text-sm text-neutral-500">
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="text-xl font-semibold text-white">通用付款凭证</div>
+        <div className="mt-1 text-sm text-white/55">
           上传照片或拍照后，可作为进入下一步的凭证。
         </div>
 
@@ -689,7 +752,10 @@ export default function PaymentFlow({
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {(groupedVouchers["general"] || []).map((v) => (
-            <div key={v.id} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+            <div
+              key={v.id}
+              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm"
+            >
               {voucherUrls[v.storage_path] ? (
                 <img
                   src={voucherUrls[v.storage_path]}
@@ -697,14 +763,14 @@ export default function PaymentFlow({
                   className="h-48 w-full object-cover"
                 />
               ) : (
-                <div className="flex h-48 items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+                <div className="flex h-48 items-center justify-center bg-white/5 text-sm text-white/45">
                   图片加载中
                 </div>
               )}
 
               <div className="p-3">
                 <textarea
-                  className="min-h-[72px] w-full rounded-xl border px-3 py-2 text-sm"
+                  className="min-h-[72px] w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                   defaultValue={v.note || ""}
                   placeholder="凭证备注"
                   onBlur={(e) => updateVoucherNote(v.id, e.target.value || null)}
@@ -712,7 +778,7 @@ export default function PaymentFlow({
 
                 <button
                   onClick={() => deleteVoucher(v.id, v.storage_path)}
-                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
                 >
                   删除凭证
                 </button>
@@ -722,7 +788,7 @@ export default function PaymentFlow({
         </div>
 
         {(groupedVouchers["general"] || []).length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-neutral-300 px-4 py-8 text-center text-sm text-neutral-400">
+          <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-center text-sm text-white/45">
             暂无通用付款凭证
           </div>
         ) : null}

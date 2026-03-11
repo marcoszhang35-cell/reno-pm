@@ -1,6 +1,13 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "@/lib/supabase";
 import PhotoPicker from "@/components/PhotoPicker";
 
@@ -42,451 +49,552 @@ function extFromName(name: string) {
   return parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg";
 }
 
+const inputCls =
+  "w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40";
+
+const inputSmCls =
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40";
+
+const ghostBtnCls =
+  "rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 active:scale-[0.99]";
+
+const dangerBtnCls =
+  "rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-200 transition hover:bg-red-400/15 active:scale-[0.99]";
+
 const P4Construction = forwardRef<P4Handle, { projectId: string; onChanged?: () => void }>(
   function P4Construction({ projectId, onChanged }, ref) {
-  const [msg, setMsg] = useState("");
-  const [items, setItems] = useState<WorkItem[]>([]);
-  const [photos, setPhotos] = useState<WorkPhoto[]>([]);
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState("");
+    const [items, setItems] = useState<WorkItem[]>([]);
+    const [photos, setPhotos] = useState<WorkPhoto[]>([]);
+    const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(false);
 
-  const refreshLock = useRef(false);
-  // ====== 只在 onBlur / 下一步保存 WorkItem ======
-  const pendingItemPatchRef = useRef<Record<string, Partial<WorkItem>>>({});
+    const refreshLock = useRef(false);
+    const pendingItemPatchRef = useRef<Record<string, Partial<WorkItem>>>({});
 
-  const itemsByTrade = useMemo(() => {
-    const map: Record<string, WorkItem[]> = {};
-    for (const t of TRADES) map[t.key] = [];
-    for (const it of items) {
-      if (!map[it.trade]) map[it.trade] = [];
-      map[it.trade].push(it);
+    const itemsByTrade = useMemo(() => {
+      const map: Record<string, WorkItem[]> = {};
+      for (const t of TRADES) map[t.key] = [];
+      for (const it of items) {
+        if (!map[it.trade]) map[it.trade] = [];
+        map[it.trade].push(it);
+      }
+      return map;
+    }, [items]);
+
+    const photosByItem = useMemo(() => {
+      const map: Record<string, WorkPhoto[]> = {};
+      for (const ph of photos) {
+        const key = ph.item_id ?? "__UNASSIGNED__";
+        if (!map[key]) map[key] = [];
+        map[key].push(ph);
+      }
+      return map;
+    }, [photos]);
+
+    async function refresh() {
+      if (refreshLock.current) return;
+      refreshLock.current = true;
+
+      try {
+        setMsg("");
+
+        const itRes = await supabase
+          .from("project_work_items")
+          .select("id,trade,team_name,price,start_date,end_date,days,note,created_at")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false });
+
+        if (itRes.error) setMsg(itRes.error.message);
+        setItems(((itRes.data as WorkItem[] | null) ?? []).map((it) => ({
+          ...it,
+          price: Number(it.price || 0),
+          days: it.days == null ? null : Number(it.days),
+        })));
+
+        const phRes = await supabase
+          .from("project_work_photos")
+          .select("id,item_id,storage_path,caption,created_at")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false });
+
+        if (phRes.error) {
+          setMsg(phRes.error.message);
+          setPhotos([]);
+          setPhotoUrls({});
+          return;
+        }
+
+        const ph = ((phRes.data as WorkPhoto[] | null) ?? []);
+        setPhotos(ph);
+
+        const paths = Array.from(new Set(ph.map((x) => x.storage_path))).filter(Boolean);
+        if (!paths.length) {
+          setPhotoUrls({});
+          return;
+        }
+
+        const { data: signed, error: sErr } = await supabase.storage
+          .from("project-photos")
+          .createSignedUrls(paths, 60 * 60);
+
+        if (sErr || !signed) {
+          setPhotoUrls({});
+          return;
+        }
+
+        const map: Record<string, string> = {};
+        for (const s of signed) {
+          if ("path" in s && "signedUrl" in s && s.path && s.signedUrl) {
+            map[s.path] = s.signedUrl;
+          }
+        }
+        setPhotoUrls(map);
+      } finally {
+        refreshLock.current = false;
+      }
     }
-    return map;
-  }, [items]);
 
-  const photosByItem = useMemo(() => {
-    const map: Record<string, WorkPhoto[]> = {};
-    for (const ph of photos) {
-      const key = ph.item_id ?? "__UNASSIGNED__";
-      if (!map[key]) map[key] = [];
-      map[key].push(ph);
-    }
-    return map;
-  }, [photos]);
+    useEffect(() => {
+      void refresh();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
-  async function refresh() {
-    if (refreshLock.current) return;
-    refreshLock.current = true;
-
-    try {
+    async function addWorkItem(trade: string) {
       setMsg("");
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (!user) return setMsg("未登录");
 
-      const itRes = await supabase
-        .from("project_work_items")
-        .select("id,trade,team_name,price,start_date,end_date,days,note,created_at")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false });
+      const { error } = await supabase.from("project_work_items").insert({
+        project_id: projectId,
+        owner_id: user.id,
+        trade,
+        team_name: "",
+        price: 0,
+        start_date: null,
+        end_date: null,
+        days: null,
+        note: "",
+      });
 
-      if (itRes.error) setMsg(itRes.error.message);
-      setItems((itRes.data as any) ?? []);
-
-      const phRes = await supabase
-        .from("project_work_photos")
-        .select("id,item_id,storage_path,caption,created_at")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false });
-
-      if (phRes.error) {
-        setMsg(phRes.error.message);
-        setPhotos([]);
-        setPhotoUrls({});
-        return;
-      }
-
-      const ph = ((phRes.data as any) ?? []) as WorkPhoto[];
-      setPhotos(ph);
-
-      const paths = Array.from(new Set(ph.map((x) => x.storage_path))).filter(Boolean);
-      if (!paths.length) {
-        setPhotoUrls({});
-        return;
-      }
-
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("project-photos")
-        .createSignedUrls(paths, 60 * 60);
-
-      if (sErr || !signed) {
-        setPhotoUrls({});
-        return;
-      }
-
-      const map: Record<string, string> = {};
-      for (const s of signed) {
-        if ((s as any).path && (s as any).signedUrl) map[(s as any).path] = (s as any).signedUrl;
-      }
-      setPhotoUrls(map);
-    } finally {
-      refreshLock.current = false;
+      if (error) return setMsg(error.message);
+      await refresh();
+      onChanged?.();
     }
-  }
-
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-
-  async function addWorkItem(trade: string) {
-    setMsg("");
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes.user;
-    if (!user) return setMsg("未登录");
-
-    const { error } = await supabase.from("project_work_items").insert({
-      project_id: projectId,
-      owner_id: user.id,
-      trade,
-      team_name: "",
-      price: 0,
-      start_date: null,
-      end_date: null,
-      days: null,
-      note: "",
-    });
-
-    if (error) return setMsg(error.message);
-    await refresh();
-    onChanged?.();
-  }
 
     function updateWorkItemLocal(id: string, patch: Partial<WorkItem>) {
-    // 1) 本地立即更新，输入不卡
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-
-    // 2) 记录待保存 patch（合并）
-    pendingItemPatchRef.current[id] = { ...(pendingItemPatchRef.current[id] || {}), ...patch };
-  }
-
-  async function saveWorkItem(id: string) {
-    const patch = pendingItemPatchRef.current[id];
-    if (!patch || Object.keys(patch).length === 0) return;
-
-    delete pendingItemPatchRef.current[id];
-
-    setMsg("");
-    const { error } = await supabase.from("project_work_items").update(patch).eq("id", id);
-    if (error) return setMsg(error.message);
-
-    // ✅ 不 refresh()，避免闪烁/变灰
-  }
-
-  async function flushAllWorkItemEdits() {
-    const ids = Object.keys(pendingItemPatchRef.current);
-    for (const id of ids) {
-      await saveWorkItem(id);
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+      pendingItemPatchRef.current[id] = { ...(pendingItemPatchRef.current[id] || {}), ...patch };
     }
-  }
-    useImperativeHandle(ref, () => ({
-    flushAll: flushAllWorkItemEdits,
-  }));
 
-  async function deleteWorkItem(item: WorkItem) {
-    setMsg("");
-    // 先删 item 相关照片（storage + db）
-    const list = photosByItem[item.id] ?? [];
-    if (list.length) {
-      const paths = list.map((x) => x.storage_path);
-      const { error: stErr } = await supabase.storage.from("project-photos").remove(paths);
+    async function saveWorkItem(id: string) {
+      const patch = pendingItemPatchRef.current[id];
+      if (!patch || Object.keys(patch).length === 0) return;
+
+      delete pendingItemPatchRef.current[id];
+
+      setMsg("");
+      const { error } = await supabase.from("project_work_items").update(patch).eq("id", id);
+      if (error) return setMsg(error.message);
+    }
+
+    async function flushAllWorkItemEdits() {
+      const ids = Object.keys(pendingItemPatchRef.current);
+      for (const id of ids) {
+        await saveWorkItem(id);
+      }
+    }
+
+    useImperativeHandle(ref, () => ({
+      flushAll: flushAllWorkItemEdits,
+    }));
+
+    async function deleteWorkItem(item: WorkItem) {
+      setMsg("");
+
+      const list = photosByItem[item.id] ?? [];
+      if (list.length) {
+        const paths = list.map((x) => x.storage_path);
+        const { error: stErr } = await supabase.storage.from("project-photos").remove(paths);
+        if (stErr) return setMsg(stErr.message);
+
+        const { error: dbpErr } = await supabase
+          .from("project_work_photos")
+          .delete()
+          .eq("item_id", item.id);
+
+        if (dbpErr) return setMsg(dbpErr.message);
+      }
+
+      const { error } = await supabase.from("project_work_items").delete().eq("id", item.id);
+      if (error) return setMsg(error.message);
+
+      await refresh();
+      onChanged?.();
+    }
+
+    async function uploadWorkPhoto(file: File, itemId: string | null) {
+      setMsg("");
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (!user) return setMsg("未登录");
+
+      const ext = extFromName(file.name);
+      const filename = `${crypto.randomUUID()}.${ext}`;
+      const path = `${user.id}/${projectId}/work/${itemId ?? "unassigned"}/${filename}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("project-photos")
+        .upload(path, file, { upsert: false });
+
+      if (upErr) return setMsg(upErr.message);
+
+      const { error: insErr } = await supabase.from("project_work_photos").insert({
+        project_id: projectId,
+        item_id: itemId,
+        owner_id: user.id,
+        storage_path: path,
+        caption: null,
+      });
+
+      if (insErr) return setMsg(insErr.message);
+
+      await refresh();
+    }
+
+    async function updateWorkPhotoCaption(photoId: string, caption: string) {
+      setMsg("");
+      const { error } = await supabase
+        .from("project_work_photos")
+        .update({ caption })
+        .eq("id", photoId);
+
+      if (error) return setMsg(error.message);
+      await refresh();
+    }
+
+    async function deleteWorkPhoto(ph: WorkPhoto) {
+      setMsg("");
+
+      const { error: stErr } = await supabase.storage
+        .from("project-photos")
+        .remove([ph.storage_path]);
+
       if (stErr) return setMsg(stErr.message);
 
-      const { error: dbpErr } = await supabase
-        .from("project_work_photos")
-        .delete()
-        .eq("item_id", item.id);
+      const { error: dbErr } = await supabase.from("project_work_photos").delete().eq("id", ph.id);
+      if (dbErr) return setMsg(dbErr.message);
 
-      if (dbpErr) return setMsg(dbpErr.message);
+      await refresh();
     }
 
-    const { error } = await supabase.from("project_work_items").delete().eq("id", item.id);
-    if (error) return setMsg(error.message);
+    async function closeProject() {
+      setMsg("");
+      setLoading(true);
+      await flushAllWorkItemEdits();
 
-    await refresh();
-    onChanged?.();
-  }
+      const { error } = await supabase
+        .from("projects")
+        .update({ stage: "CLOSED" })
+        .eq("id", projectId);
 
-  async function uploadWorkPhoto(file: File, itemId: string | null) {
-    setMsg("");
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes.user;
-    if (!user) return setMsg("未登录");
+      setLoading(false);
+      if (error) return setMsg(error.message);
 
-    const ext = extFromName(file.name);
-    const filename = `${crypto.randomUUID()}.${ext}`;
-    const path = `${user.id}/${projectId}/work/${itemId ?? "unassigned"}/${filename}`;
+      onChanged?.();
+      window.location.reload();
+    }
 
-    const { error: upErr } = await supabase.storage
-      .from("project-photos")
-      .upload(path, file, { upsert: false });
+    return (
+      <div className="space-y-6">
+        {msg && (
+          <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            {msg}
+          </div>
+        )}
 
-    if (upErr) return setMsg(upErr.message);
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xl font-semibold text-white">P4 施工中</div>
+              <div className="mt-1 text-sm text-white/55">
+                每个工种可以添加多条记录（多次进场）。每条记录可拍照、写备注、记录团队、费用和工期。
+              </div>
+            </div>
 
-    const { error: insErr } = await supabase.from("project_work_photos").insert({
-      project_id: projectId,
-      item_id: itemId,
-      owner_id: user.id,
-      storage_path: path,
-      caption: null,
-    });
-
-    if (insErr) return setMsg(insErr.message);
-
-    await refresh();
-  }
-
-  async function updateWorkPhotoCaption(photoId: string, caption: string) {
-    setMsg("");
-    const { error } = await supabase
-      .from("project_work_photos")
-      .update({ caption })
-      .eq("id", photoId);
-
-    if (error) return setMsg(error.message);
-    await refresh();
-  }
-
-  async function deleteWorkPhoto(ph: WorkPhoto) {
-    setMsg("");
-
-    const { error: stErr } = await supabase.storage
-      .from("project-photos")
-      .remove([ph.storage_path]);
-
-    if (stErr) return setMsg(stErr.message);
-
-    const { error: dbErr } = await supabase.from("project_work_photos").delete().eq("id", ph.id);
-    if (dbErr) return setMsg(dbErr.message);
-
-    await refresh();
-  }
-
-  async function closeProject() {
-    setMsg("");
-    setLoading(true);
-    await flushAllWorkItemEdits();
-
-    const { error } = await supabase.from("projects").update({ stage: "CLOSED" }).eq("id", projectId);
-
-    setLoading(false);
-    if (error) return setMsg(error.message);
-
-    onChanged?.();
-    window.location.reload();
-  }
-
-  return (
-    <div className="space-y-4">
-        <div className="text-xs opacity-80">P4 loaded, projectId: {projectId}</div>
-      <div className="bg-white border rounded-2xl p-4">
-        <div className="font-bold">P4 施工中</div>
-        <div className="mt-2 text-sm opacity-90">
-          每个工种可以添加多条记录（多次进场）。每条记录可拍照、写备注、记录团队/费用/工期。
-        </div>
-        {msg && <div className="mt-3 text-sm text-red-600">{msg}</div>}
-      </div>
-
-      {/* 未绑定到记录的照片（可选用） */}
-      <div className="bg-white border rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="font-bold">未归类施工照片</div>
-            <div className="text-xs opacity-80 mt-1">先拍了再说，不绑定任何记录也可以。</div>
+            <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
+              projectId: {projectId}
+            </div>
           </div>
 
-          <PhotoPicker onPick={(file) => uploadWorkPhoto(file, null)} />
-        </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <button
+              onClick={closeProject}
+              disabled={loading}
+              className="rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-4 py-3 text-sm font-medium text-slate-950 transition hover:opacity-95 disabled:opacity-70"
+            >
+              {loading ? "处理中..." : "完工关闭项目"}
+            </button>
+          </div>
+        </section>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(photosByItem["__UNASSIGNED__"] ?? []).map((ph) => (
-            <div key={ph.id} className="border rounded-xl overflow-hidden">
-              <div className="aspect-video bg-gray-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photoUrls[ph.storage_path]}
-                  alt={ph.caption || "work photo"}
-                  className="w-full h-full object-cover"
-                />
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-lg font-semibold text-white">未归类施工照片</div>
+              <div className="mt-1 text-sm text-white/55">
+                先拍了再说，不绑定任何记录也可以。
               </div>
-              <div className="p-3 space-y-2">
-                <input
-                  defaultValue={ph.caption || ""}
-                  placeholder="备注（例如：电线走位 / 防水完成）"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  onBlur={(e) => updateWorkPhotoCaption(ph.id, e.target.value)}
-                />
-                <button className="w-full px-3 py-2 rounded-lg border text-sm" onClick={() => deleteWorkPhoto(ph)}>
-                  删除
+            </div>
+
+            <PhotoPicker onPick={(file) => uploadWorkPhoto(file, null)} />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(photosByItem["__UNASSIGNED__"] ?? []).map((ph) => (
+              <div
+                key={ph.id}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm"
+              >
+                <div className="aspect-video bg-white/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoUrls[ph.storage_path]}
+                    alt={ph.caption || "work photo"}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="space-y-2 p-3">
+                  <input
+                    defaultValue={ph.caption || ""}
+                    placeholder="备注（例如：电线走位 / 防水完成）"
+                    className={inputSmCls}
+                    onBlur={(e) => updateWorkPhotoCaption(ph.id, e.target.value)}
+                  />
+                  <button
+                    className={dangerBtnCls}
+                    onClick={() => deleteWorkPhoto(ph)}
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {(photosByItem["__UNASSIGNED__"] ?? []).length === 0 && (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-sm text-white/45">
+              暂无未归类照片。
+            </div>
+          )}
+        </section>
+
+        {TRADES.map((t) => {
+          const list = itemsByTrade[t.key] ?? [];
+          return (
+            <section
+              key={t.key}
+              className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold text-white">{t.label}</div>
+                  <div className="mt-1 text-sm text-white/55">
+                    该工种的施工记录、照片和说明。
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => addWorkItem(t.key)}
+                  className={ghostBtnCls}
+                >
+                  + 新增记录
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {(photosByItem["__UNASSIGNED__"] ?? []).length === 0 && (
-          <div className="mt-3 text-sm opacity-80">暂无未归类照片。</div>
-        )}
-      </div>
-
-      {/* 工种卡片 */}
-      {TRADES.map((t) => {
-        const list = itemsByTrade[t.key] ?? [];
-        return (
-          <div key={t.key} className="bg-white border rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="font-bold">{t.label}</div>
-              <button onClick={() => addWorkItem(t.key)} className="px-3 py-2 rounded-xl border text-sm active:scale-[0.99]">
-                + 新增记录
-              </button>
-            </div>
-
-            {list.length === 0 ? (
-              <div className="text-sm opacity-80">暂无记录。</div>
-            ) : (
-              <div className="space-y-4">
-                {list.map((it) => {
-                  const phList = photosByItem[it.id] ?? [];
-                  return (
-                    <div key={it.id} className="border rounded-2xl p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-sm">记录</div>
-                        <button onClick={() => deleteWorkItem(it)} className="px-3 py-2 rounded-xl border text-sm">
-                          删除记录
-                        </button>
-                      </div>
-
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <div className="text-xs opacity-90">团队名称</div>
-                          <input
-  value={it.team_name ?? ""}
-  onChange={(e) => updateWorkItemLocal(it.id, { team_name: e.target.value })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-  placeholder="例如：张三水工队"
-/>
-                        </div>
-
-                        <div>
-                          <div className="text-xs opacity-90">价格（NZD）</div>
-                          <input
-  type="number"
-  value={it.price ?? 0}
-  onChange={(e) => updateWorkItemLocal(it.id, { price: Number(e.target.value || 0) })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-/>
-                        </div>
-
-                        <div>
-                          <div className="text-xs opacity-90">开始日期</div>
-                          <input
-  type="date"
-  value={it.start_date ?? ""}
-  onChange={(e) => updateWorkItemLocal(it.id, { start_date: e.target.value || null })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-/>
-                        </div>
-
-                        <div>
-                          <div className="text-xs opacity-90">结束日期</div>
-                          <input
-  type="date"
-  value={it.end_date ?? ""}
-  onChange={(e) => updateWorkItemLocal(it.id, { end_date: e.target.value || null })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-/>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <div className="text-xs opacity-90">工期（天，可选）</div>
-                          <input
-  type="number"
-  value={it.days ?? ""}
-  onChange={(e) => updateWorkItemLocal(it.id, { days: e.target.value ? Number(e.target.value) : null })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-  placeholder="例如：3"
-/>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <div className="text-xs opacity-90">备注</div>
-                          <textarea
-  value={it.note ?? ""}
-  onChange={(e) => updateWorkItemLocal(it.id, { note: e.target.value })}
-  onBlur={() => saveWorkItem(it.id)}
-  className="mt-1 w-full border rounded-xl px-3 py-2 text-base"
-  rows={3}
-  placeholder="例如：防水做了2遍，24小时闭水"
-/>
-                        </div>
-                      </div>
-
-                      {/* 施工照片 */}
-                      <div className="mt-3 border rounded-2xl p-3">
+              {list.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-sm text-white/45">
+                  暂无记录。
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {list.map((it) => {
+                    const phList = photosByItem[it.id] ?? [];
+                    return (
+                      <div
+                        key={it.id}
+                        className="rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-sm"
+                      >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-semibold text-sm">施工照片（{phList.length}）</div>
-                          <PhotoPicker
-  cameraLabel="+ 拍照"
-  galleryLabel="+ 从图库选择"
-  onPick={(file) => uploadWorkPhoto(file, it.id)}
-/>
+                          <div className="text-sm font-semibold text-white/80">记录</div>
+                          <button
+                            onClick={() => deleteWorkItem(it)}
+                            className={dangerBtnCls}
+                          >
+                            删除记录
+                          </button>
                         </div>
 
-                        {phList.length === 0 ? (
-                          <div className="mt-2 text-sm opacity-80">暂无照片。</div>
-                        ) : (
-                          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {phList.map((ph) => (
-                              <div key={ph.id} className="border rounded-xl overflow-hidden">
-                                <div className="aspect-video bg-gray-100">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={photoUrls[ph.storage_path]}
-                                    alt={ph.caption || "work photo"}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-
-                                <div className="p-3 space-y-2">
-                                  <input
-                                    defaultValue={ph.caption || ""}
-                                    placeholder="照片备注"
-                                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                                    onBlur={(e) => updateWorkPhotoCaption(ph.id, e.target.value)}
-                                  />
-                                  <button className="w-full px-3 py-2 rounded-lg border text-sm" onClick={() => deleteWorkPhoto(ph)}>
-                                    删除照片
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <div className="text-xs text-white/55">团队名称</div>
+                            <input
+                              value={it.team_name ?? ""}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, { team_name: e.target.value })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1`}
+                              placeholder="例如：张三水工队"
+                            />
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
 
-      
-    </div>
-  );
+                          <div>
+                            <div className="text-xs text-white/55">价格（NZD）</div>
+                            <input
+                              type="number"
+                              value={it.price ?? 0}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, {
+                                  price: Number(e.target.value || 0),
+                                })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1`}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="text-xs text-white/55">开始日期</div>
+                            <input
+                              type="date"
+                              value={it.start_date ?? ""}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, {
+                                  start_date: e.target.value || null,
+                                })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1`}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="text-xs text-white/55">结束日期</div>
+                            <input
+                              type="date"
+                              value={it.end_date ?? ""}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, {
+                                  end_date: e.target.value || null,
+                                })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1`}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <div className="text-xs text-white/55">工期（天，可选）</div>
+                            <input
+                              type="number"
+                              value={it.days ?? ""}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, {
+                                  days: e.target.value ? Number(e.target.value) : null,
+                                })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1`}
+                              placeholder="例如：3"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <div className="text-xs text-white/55">备注</div>
+                            <textarea
+                              value={it.note ?? ""}
+                              onChange={(e) =>
+                                updateWorkItemLocal(it.id, { note: e.target.value })
+                              }
+                              onBlur={() => saveWorkItem(it.id)}
+                              className={`${inputCls} mt-1 min-h-[110px]`}
+                              rows={3}
+                              placeholder="例如：防水做了2遍，24小时闭水"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-white">
+                                施工照片（{phList.length}）
+                              </div>
+                              <div className="mt-1 text-xs text-white/45">
+                                当前照片已归属到该施工记录。
+                              </div>
+                            </div>
+
+                            <PhotoPicker
+                              cameraLabel="+ 拍照"
+                              galleryLabel="+ 从图库选择"
+                              onPick={(file) => uploadWorkPhoto(file, it.id)}
+                            />
+                          </div>
+
+                          {phList.length === 0 ? (
+                            <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-sm text-white/45">
+                              暂无照片。
+                            </div>
+                          ) : (
+                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              {phList.map((ph) => (
+                                <div
+                                  key={ph.id}
+                                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm"
+                                >
+                                  <div className="aspect-video bg-white/5">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={photoUrls[ph.storage_path]}
+                                      alt={ph.caption || "work photo"}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2 p-3">
+                                    <input
+                                      defaultValue={ph.caption || ""}
+                                      placeholder="照片备注"
+                                      className={inputSmCls}
+                                      onBlur={(e) =>
+                                        updateWorkPhotoCaption(ph.id, e.target.value)
+                                      }
+                                    />
+                                    <button
+                                      className={dangerBtnCls}
+                                      onClick={() => deleteWorkPhoto(ph)}
+                                    >
+                                      删除照片
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    );
   }
 );
 

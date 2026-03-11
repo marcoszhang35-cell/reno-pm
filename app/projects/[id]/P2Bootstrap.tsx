@@ -30,7 +30,7 @@ type ItemPhoto = {
   image_path: string;
 };
 
-function n(v: any) {
+function n(v: unknown) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
 }
@@ -96,17 +96,17 @@ export default function P2Bootstrap({
     }
 
     const { data: profileRes, error: profileErr } = await supabase
-  .from("user_profiles")
-  .select("role")
-  .eq("id", userRes.user.id)
-  .single();
+      .from("user_profiles")
+      .select("role")
+      .eq("id", userRes.user.id)
+      .single();
 
-if (profileErr) {
-  setLoading(false);
-  return setMsg(profileErr.message);
-}
+    if (profileErr) {
+      setLoading(false);
+      return setMsg(profileErr.message);
+    }
 
-setRole(profileRes.role);
+    setRole(profileRes.role);
 
     const qRes = await supabase
       .from("project_quotes")
@@ -142,8 +142,11 @@ setRole(profileRes.role);
       return setMsg(iRes.error.message);
     }
 
-    const itemsData = ((iRes.data || []) as any[]).map((it) => ({
+    const itemsData = ((iRes.data || []) as Record<string, unknown>[]).map((it) => ({
       ...it,
+      id: String(it.id || ""),
+      item_name: String(it.item_name || ""),
+      description: it.description ? String(it.description) : null,
       qty: n(it.qty),
       unit_price: n(it.unit_price),
       amount: n(it.amount),
@@ -212,7 +215,7 @@ setRole(profileRes.role);
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -321,7 +324,6 @@ setRole(profileRes.role);
     const nextItems = items.map((it) => (it.id === id ? nextItem : it));
     const nextTotalInclGst = calcItemsTotalInclGst(nextItems);
 
-    // 先本地更新，避免整页 refresh
     setItems(nextItems);
     setQuote((prev) => (prev ? { ...prev, total_amount: nextTotalInclGst } : prev));
 
@@ -339,7 +341,6 @@ setRole(profileRes.role);
       .eq("id", id);
 
     if (error) {
-      // 回滚
       setItems(prevItems);
       setQuote((prev) =>
         prev ? { ...prev, total_amount: calcItemsTotalInclGst(prevItems) } : prev
@@ -512,34 +513,32 @@ setRole(profileRes.role);
 
   const profit = subtotal - costTotal;
   const margin = subtotal > 0 ? (profit / subtotal) * 100 : 0;
-  
+
   const canSeeCost = role === "manager" || role === "boss";
-const canDeleteProject = role === "boss";
-const canCreateProject = role === "sales" || role === "manager" || role === "boss";
-const canAccessP2 = role === "sales" || role === "manager" || role === "boss";
-const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
+  const canAccessP2 = role === "sales" || role === "manager" || role === "boss";
+
   if (loading) {
     return (
-      <div className="rounded-3xl border bg-white p-6 shadow-sm">
-        <div className="text-lg font-bold">P2 报价</div>
-        <div className="mt-2 text-sm opacity-80">加载中...</div>
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="text-lg font-bold text-white">P2 报价</div>
+        <div className="mt-2 text-sm text-white/70">加载中...</div>
       </div>
     );
   }
 
   if (!quote) {
     return (
-      <div className="rounded-3xl border bg-white p-6 shadow-sm">
-        <div className="text-lg font-bold">P2 报价</div>
-        <div className="mt-2 text-sm opacity-80">
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="text-lg font-bold text-white">P2 报价</div>
+        <div className="mt-2 text-sm text-white/70">
           先初始化报价记录。初始化后即可录入小项目、上传照片和导出 PDF。
         </div>
 
-        {msg && <div className="mt-3 text-sm text-red-600">{msg}</div>}
+        {msg && <div className="mt-3 text-sm text-red-300">{msg}</div>}
 
         <button
           onClick={initQuote}
-          className="mt-4 w-full rounded-2xl bg-black px-4 py-3 font-medium text-white"
+          className="mt-4 w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 font-medium text-slate-950 transition hover:opacity-95"
         >
           初始化报价
         </button>
@@ -548,15 +547,13 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
   }
 
   if (role && !canAccessP2) {
-  return (
-    <div className="rounded-3xl border bg-white p-6 shadow-sm">
-      <div className="text-lg font-bold">无权限访问</div>
-      <div className="mt-2 text-sm opacity-80">
-        你当前角色没有权限访问报价页面。
+    return (
+      <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="text-lg font-bold text-white">无权限访问</div>
+        <div className="mt-2 text-sm text-white/70">你当前角色没有权限访问报价页面。</div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -585,18 +582,20 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
         </div>
       </section>
 
-      {msg && <div className="text-sm text-red-600">{msg}</div>}
+      {msg && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+          {msg}
+        </div>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[1.5fr_360px]">
-        <div className="overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b bg-gradient-to-r from-slate-50 to-neutral-100 px-5 py-4">
+        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-5 py-4">
             <div>
-              <h3 className="text-lg font-semibold">正式报价表</h3>
-              <p className="mt-1 text-sm text-neutral-500">
-                根据下方小项目自动同步生成
-              </p>
+              <h3 className="text-lg font-semibold text-white">正式报价表</h3>
+              <p className="mt-1 text-sm text-white/55">根据下方小项目自动同步生成</p>
             </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
               Live Sync
             </span>
           </div>
@@ -604,17 +603,17 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
               <thead>
-                <tr className="bg-neutral-50 text-left text-sm text-neutral-600">
+                <tr className="bg-white/5 text-left text-sm text-white/70">
                   <th className="px-5 py-4 font-medium">项目名称</th>
                   <th className="px-5 py-4 text-right font-medium">报价 ex GST</th>
                   <th className="px-5 py-4 text-right font-medium">GST 15%</th>
                   <th className="px-5 py-4 text-right font-medium">报价 incl GST</th>
                 </tr>
               </thead>
-              <tbody className="text-sm">
+              <tbody className="text-sm text-white/85">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-neutral-400">
+                    <td colSpan={4} className="px-5 py-10 text-center text-white/45">
                       暂无报价项目，请先添加小项目
                     </td>
                   </tr>
@@ -625,16 +624,13 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                     const incl = ex + gst;
 
                     return (
-                      <tr
-                        key={it.id}
-                        className="border-t border-neutral-100 hover:bg-neutral-50/60"
-                      >
+                      <tr key={it.id} className="border-t border-white/10 hover:bg-white/5">
                         <td className="px-5 py-4">
-                          <div className="font-medium text-neutral-800">
+                          <div className="font-medium text-white">
                             {it.item_name || `小项目 ${idx + 1}`}
                           </div>
                           {it.description ? (
-                            <div className="mt-1 text-xs text-neutral-400 line-clamp-1">
+                            <div className="mt-1 line-clamp-1 text-xs text-white/45">
                               {it.description}
                             </div>
                           ) : null}
@@ -648,7 +644,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                 )}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                <tr className="border-t-2 border-white/10 bg-white/5 font-semibold text-white">
                   <td className="px-5 py-4">总计</td>
                   <td className="px-5 py-4 text-right">{money(subtotal)}</td>
                   <td className="px-5 py-4 text-right">{money(gstTotal)}</td>
@@ -660,85 +656,85 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">报价总览</h3>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <h3 className="text-lg font-semibold text-white">报价总览</h3>
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
                 自动汇总
               </span>
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-2xl bg-neutral-50 px-4 py-3">
-                <span className="text-neutral-500">未税总价</span>
-                <span className="font-medium">{money(subtotal)}</span>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <span className="text-white/55">未税总价</span>
+                <span className="font-medium text-white">{money(subtotal)}</span>
               </div>
-              <div className="flex items-center justify-between rounded-2xl bg-neutral-50 px-4 py-3">
-                <span className="text-neutral-500">GST 15%</span>
-                <span className="font-medium">{money(gstTotal)}</span>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <span className="text-white/55">GST 15%</span>
+                <span className="font-medium text-white">{money(gstTotal)}</span>
               </div>
-              <div className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-4 text-white">
+              <div className="flex items-center justify-between rounded-2xl bg-[#081633] px-4 py-4 text-white">
                 <span className="text-white/80">含税总价</span>
                 <span className="text-lg font-semibold">{money(totalInclGst)}</span>
               </div>
             </div>
 
-            <div className="mt-3 text-xs text-neutral-500">
+            <div className="mt-3 text-xs text-white/45">
               {syncingTotal ? "正在同步 total_amount..." : "报价总价会自动同步到付款流程"}
             </div>
 
             {canSeeCost ? (
-  <div className="mt-5 border-t pt-4">
-    <div className="mb-3 text-sm font-medium text-neutral-700">内部利润参考</div>
-    <div className="space-y-2 text-sm text-neutral-600">
-      <div className="flex justify-between">
-        <span>成本总计</span>
-        <span>{money(costTotal)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span>毛利</span>
-        <span>{money(profit)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span>毛利率</span>
-        <span>{margin.toFixed(1)}%</span>
-      </div>
-    </div>
-  </div>
-) : null}
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <div className="mb-3 text-sm font-medium text-white/80">内部利润参考</div>
+                <div className="space-y-2 text-sm text-white/70">
+                  <div className="flex justify-between">
+                    <span>成本总计</span>
+                    <span>{money(costTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>毛利</span>
+                    <span>{money(profit)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>毛利率</span>
+                    <span>{margin.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-            <div className="mt-5 border-t pt-4">
-              <div className="text-sm font-medium">建议报价（手填）</div>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="text-sm font-medium text-white">建议报价（手填）</div>
               <input
                 inputMode="decimal"
-                className="mt-2 w-full rounded-2xl border px-3 py-3"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                 defaultValue={quote.recommended_total ?? 0}
                 onBlur={(e) => updateQuote({ recommended_total: n(e.target.value) })}
                 placeholder="例如 25000"
               />
-              <div className="mt-1 text-xs opacity-70">失焦自动保存</div>
+              <div className="mt-1 text-xs text-white/45">失焦自动保存</div>
 
-              <div className="mt-4 text-sm font-medium">报价备注</div>
+              <div className="mt-4 text-sm font-medium text-white">报价备注</div>
               <textarea
-                className="mt-2 min-h-[110px] w-full rounded-2xl border px-3 py-3"
+                className="mt-2 min-h-[110px] w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                 defaultValue={quote.note || ""}
                 onBlur={(e) => updateQuote({ note: e.target.value || null })}
                 placeholder="填写客户可见的报价备注、施工说明、有效期等"
               />
-              <div className="mt-1 text-xs opacity-70">失焦自动保存</div>
+              <div className="mt-1 text-xs text-white/45">失焦自动保存</div>
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-semibold">导出 / 下一步</h3>
-            <p className="mt-2 text-sm text-neutral-500">
+          <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+            <h3 className="text-lg font-semibold text-white">导出 / 下一步</h3>
+            <p className="mt-2 text-sm text-white/55">
               导出的 PDF 会带公司 logo，并使用当前正式报价表中的数据。
             </p>
 
             <div className="mt-4 space-y-3">
               <button
                 onClick={exportQuotePdf}
-                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700"
+                className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700"
               >
                 导出报价 PDF
               </button>
@@ -746,7 +742,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
               {onGoPayment ? (
                 <button
                   onClick={onGoPayment}
-                  className="w-full rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
                 >
                   进入付款阶段
                 </button>
@@ -756,18 +752,18 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-semibold">量尺报价录入区</h3>
-            <p className="mt-1 text-sm text-neutral-500">
+            <h3 className="text-xl font-semibold text-white">量尺报价录入区</h3>
+            <p className="mt-1 text-sm text-white/55">
               每新增一个小项目，上方正式报价表会自动增加一行。
             </p>
           </div>
 
           <button
             onClick={addItem}
-            className="rounded-2xl bg-black px-4 py-3 text-sm font-medium text-white"
+            className="rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 text-sm font-medium text-slate-950 transition hover:opacity-95"
           >
             + 添加小项目
           </button>
@@ -776,9 +772,9 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
 
       <section className="space-y-5">
         {items.length === 0 ? (
-          <div className="rounded-[28px] border border-dashed border-neutral-300 bg-white p-10 text-center shadow-sm">
-            <div className="text-lg font-medium text-neutral-700">还没有小项目</div>
-            <p className="mt-2 text-sm text-neutral-500">
+          <div className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-10 text-center shadow-2xl backdrop-blur-xl">
+            <div className="text-lg font-medium text-white">还没有小项目</div>
+            <p className="mt-2 text-sm text-white/55">
               点击上方“添加小项目”，开始录入量尺报价内容。
             </p>
           </div>
@@ -792,21 +788,21 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
             return (
               <div
                 key={it.id}
-                className="overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-sm"
+                className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl"
               >
-                <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 px-5 py-4">
+                <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-5 py-4">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-neutral-400">
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
                       Quote Item
                     </div>
-                    <h3 className="mt-1 text-lg font-semibold">
+                    <h3 className="mt-1 text-lg font-semibold text-white">
                       {it.item_name || `小项目 ${index + 1}`}
                     </h3>
                   </div>
 
                   <button
                     onClick={() => deleteItem(it.id)}
-                    className="rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                    className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-2 text-sm font-medium text-red-200 hover:bg-red-400/15"
                   >
                     删除
                   </button>
@@ -815,9 +811,9 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                 <div className="grid gap-6 p-5 xl:grid-cols-[1.2fr_0.8fr]">
                   <div className="space-y-4">
                     <div>
-                      <div className="mb-2 text-sm font-medium text-neutral-700">项目名称</div>
+                      <div className="mb-2 text-sm font-medium text-white/80">项目名称</div>
                       <input
-                        className="w-full rounded-2xl border px-4 py-3"
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                         defaultValue={it.item_name}
                         onBlur={(e) => updateItem(it.id, { item_name: e.target.value })}
                         placeholder="例如：一楼厨房"
@@ -825,9 +821,9 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                     </div>
 
                     <div>
-                      <div className="mb-2 text-sm font-medium text-neutral-700">备注</div>
+                      <div className="mb-2 text-sm font-medium text-white/80">备注</div>
                       <textarea
-                        className="min-h-[100px] w-full rounded-2xl border px-4 py-3"
+                        className="min-h-[100px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                         defaultValue={it.description || ""}
                         onBlur={(e) =>
                           updateItem(it.id, { description: e.target.value || null })
@@ -836,16 +832,16 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                       />
                     </div>
 
-                    <div className="rounded-3xl border border-neutral-200 bg-gradient-to-br from-slate-50 to-white p-4">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
                       <div className="mb-4 flex items-center justify-between">
                         <div>
-                          <h4 className="text-sm font-semibold text-neutral-800">项目照片</h4>
-                          <p className="mt-1 text-xs text-neutral-500">
+                          <h4 className="text-sm font-semibold text-white">项目照片</h4>
+                          <p className="mt-1 text-xs text-white/45">
                             一个小项目可上传多张照片，统一归属到当前小项目
                           </p>
                         </div>
 
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
                           {itemPhotos.length} 张
                         </span>
                       </div>
@@ -862,7 +858,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                           />
                         </label>
 
-                        <label className="inline-flex cursor-pointer items-center rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+                        <label className="inline-flex cursor-pointer items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
                           拍照上传
                           <input
                             type="file"
@@ -876,7 +872,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                       </div>
 
                       {uploadingItemId === it.id ? (
-                        <div className="mt-3 text-sm text-neutral-500">上传中...</div>
+                        <div className="mt-3 text-sm text-white/55">上传中...</div>
                       ) : null}
 
                       {itemPhotos.length > 0 ? (
@@ -884,7 +880,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                           {itemPhotos.map((ph) => (
                             <div
                               key={ph.id}
-                              className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+                              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-sm"
                             >
                               {photoUrls[ph.image_path] ? (
                                 <img
@@ -893,7 +889,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                                   className="h-32 w-full object-cover"
                                 />
                               ) : (
-                                <div className="flex h-32 items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+                                <div className="flex h-32 items-center justify-center bg-white/5 text-sm text-white/45">
                                   图片加载中
                                 </div>
                               )}
@@ -901,7 +897,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                               <div className="space-y-2 p-3">
                                 <button
                                   onClick={() => deletePhoto(ph.id, ph.image_path)}
-                                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
                                 >
                                   删除照片
                                 </button>
@@ -910,7 +906,7 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                           ))}
                         </div>
                       ) : (
-                        <div className="mt-4 rounded-2xl border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-sm text-neutral-400">
+                        <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-center text-sm text-white/45">
                           暂无照片，请上传当前小项目的现场图片
                         </div>
                       )}
@@ -918,48 +914,48 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                   </div>
 
                   <div className="space-y-4">
-                    <div className="rounded-3xl bg-neutral-50 p-4">
-                      <div className="mb-3 text-sm font-medium text-neutral-700">金额信息</div>
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                      <div className="mb-3 text-sm font-medium text-white/80">金额信息</div>
 
                       <div className="space-y-4">
-                       {canSeeCost ? (
-  <div>
-    <div className="mb-2 text-sm font-medium text-neutral-700">成本价（单价）</div>
-    <input
-      inputMode="decimal"
-      className="w-full rounded-2xl border px-4 py-3"
-      defaultValue={it.cost_price ?? 0}
-      onBlur={(e) => updateItem(it.id, { cost_price: n(e.target.value) })}
-      placeholder="0.00"
-    />
-  </div>
-) : null}
+                        {canSeeCost ? (
+                          <div>
+                            <div className="mb-2 text-sm font-medium text-white/80">
+                              成本价（单价）
+                            </div>
+                            <input
+                              inputMode="decimal"
+                              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
+                              defaultValue={it.cost_price ?? 0}
+                              onBlur={(e) => updateItem(it.id, { cost_price: n(e.target.value) })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        ) : null}
 
                         <div>
-                          <div className="mb-2 text-sm font-medium text-neutral-700">数量</div>
+                          <div className="mb-2 text-sm font-medium text-white/80">数量</div>
                           <input
                             inputMode="decimal"
-                            className="w-full rounded-2xl border px-4 py-3"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                             defaultValue={it.qty ?? 1}
                             onBlur={(e) => updateItem(it.id, { qty: n(e.target.value) })}
                           />
                         </div>
 
                         <div>
-                          <div className="mb-2 text-sm font-medium text-neutral-700">单价</div>
+                          <div className="mb-2 text-sm font-medium text-white/80">单价</div>
                           <input
                             inputMode="decimal"
-                            className="w-full rounded-2xl border px-4 py-3"
+                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
                             defaultValue={it.unit_price ?? 0}
-                            onBlur={(e) =>
-                              updateItem(it.id, { unit_price: n(e.target.value) })
-                            }
+                            onBlur={(e) => updateItem(it.id, { unit_price: n(e.target.value) })}
                           />
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-3xl bg-slate-900 p-4 text-white">
+                    <div className="rounded-3xl bg-[#081633] p-4 text-white">
                       <div className="mb-3 text-sm font-medium text-white/80">自动计算</div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -977,11 +973,11 @@ const canAccessP4 = role === "worker" || role === "manager" || role === "boss";
                       </div>
                     </div>
 
-                    <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-4 text-sm text-neutral-500">
+                    <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-white/55">
                       上方填写的报价会自动同步到页面顶部正式报价表中。
                     </div>
 
-                    <div className="text-sm text-neutral-500">
+                    <div className="text-sm text-white/45">
                       {savingId === it.id ? "保存中..." : "输入框失焦后自动保存"}
                     </div>
                   </div>
