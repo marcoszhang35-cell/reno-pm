@@ -9,6 +9,7 @@ import P2Bootstrap from "./P2Bootstrap";
 import P3Materials from "./P3Materials";
 import P4Construction from "./P4Construction";
 import PaymentFlow from "./PaymentFlow";
+import type { P1Handle } from "./P1Form";
 import type { P3Handle } from "./P3Materials";
 import type { P4Handle } from "./P4Construction";
 
@@ -100,6 +101,7 @@ export default function ProjectDetailPage() {
   const [msg, setMsg] = useState("");
   const [denied, setDenied] = useState(false);
 
+  const p1Ref = useRef<P1Handle | null>(null);
   const p3Ref = useRef<P3Handle | null>(null);
   const p4Ref = useRef<P4Handle | null>(null);
   const didInitTab = useRef(false);
@@ -229,6 +231,9 @@ export default function ProjectDetailPage() {
   const isWorker = role === "worker";
 
   async function flushCurrentPageBeforeStageAction() {
+    if (tab === "P1") {
+    await p1Ref.current?.flushAll();
+    }
     if (tab === "P3") {
       await p3Ref.current?.flushAll();
     }
@@ -460,7 +465,9 @@ export default function ProjectDetailPage() {
         )}
 
         <section className="rounded-[30px] border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl md:p-5">
-          {!isWorker && tab === "P1" && <P1Form project={project} onSaved={load} />}
+          {!isWorker && tab === "P1" && (
+  <P1Form ref={p1Ref} project={project} onSaved={load} />
+)}
 
           {!isWorker && tab === "P2" && (
             <P2Bootstrap
