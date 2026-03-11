@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const ALLOWED_ROLES = ["worker", "sales", "manager", "boss"] as const;
 type Role = (typeof ALLOWED_ROLES)[number];
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error("缺少环境变量 NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error("缺少环境变量 SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
 
 async function getCurrentProfile(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -15,6 +25,8 @@ async function getCurrentProfile(req: Request) {
 
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return null;
+
+  const supabaseAdmin = getSupabaseAdmin();
 
   const {
     data: { user },
@@ -53,6 +65,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data: targetUser, error: targetErr } = await supabaseAdmin
       .from("user_profiles")
       .select("id, role")
@@ -63,7 +77,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "目标用户不存在" }, { status: 404 });
     }
 
-    if (role && !ALLOWED_ROLES.includes(role)) {
+    if (role && !ALLOWED_ROLES.includes(role as Role)) {
       return NextResponse.json({ error: "角色不合法" }, { status: 400 });
     }
 
@@ -85,12 +99,17 @@ export async function POST(req: Request) {
 
     const nextRole = (role ?? targetUser.role) as Role;
 
-    const updatePayload: Record<string, any> = {
+    const updatePayload: {
+      updated_at: string;
+      full_name?: string;
+      role?: Role;
+      trade_type?: string | null;
+    } = {
       updated_at: new Date().toISOString(),
     };
 
     if (full_name !== undefined) updatePayload.full_name = full_name;
-    if (role !== undefined) updatePayload.role = role;
+    if (role !== undefined) updatePayload.role = role as Role;
     if (trade_type !== undefined || role !== undefined) {
       updatePayload.trade_type = nextRole === "worker" ? trade_type || null : null;
     }
@@ -105,10 +124,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || "服务器错误" },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "服务器错误";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
