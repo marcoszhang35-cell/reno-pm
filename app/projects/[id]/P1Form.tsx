@@ -54,13 +54,13 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
   const meta = useMemo(() => stageMeta(project.stage), [project.stage]);
 
   function toggleArea(area: string) {
-    setForm((p) => {
-      const has = p.target_areas.includes(area);
+    setForm((prev) => {
+      const has = prev.target_areas.includes(area);
       return {
-        ...p,
+        ...prev,
         target_areas: has
-          ? p.target_areas.filter((x) => x !== area)
-          : [...p.target_areas, area],
+          ? prev.target_areas.filter((x) => x !== area)
+          : [...prev.target_areas, area],
       };
     });
   }
@@ -141,10 +141,12 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
           <select
             className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-400/40"
             value={form.source}
-            onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, source: e.target.value }))
+            }
           >
             <option value="" className="text-black">
-              -
+              —
             </option>
             {SOURCE_OPTIONS.map((x) => (
               <option key={x} value={x} className="text-black">
@@ -159,19 +161,23 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
           <input
             className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
             value={form.address}
-            onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, address: e.target.value }))
+            }
             placeholder="例如：22 Moyrus Crescent"
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-white/85">客户姓名 *</label>
+            <label className="text-sm font-medium text-white/85">
+              客户姓名 *
+            </label>
             <input
               className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-400/40"
               value={form.client_name}
               onChange={(e) =>
-                setForm((p) => ({ ...p, client_name: e.target.value }))
+                setForm((prev) => ({ ...prev, client_name: e.target.value }))
               }
             />
           </div>
@@ -182,7 +188,7 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
               className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
               value={form.client_phone}
               onChange={(e) =>
-                setForm((p) => ({ ...p, client_phone: e.target.value }))
+                setForm((prev) => ({ ...prev, client_phone: e.target.value }))
               }
               placeholder="选填"
             />
@@ -196,16 +202,19 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
             className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-cyan-400/40"
             value={form.created_date}
             onChange={(e) =>
-              setForm((p) => ({ ...p, created_date: e.target.value }))
+              setForm((prev) => ({ ...prev, created_date: e.target.value }))
             }
           />
         </div>
 
         <div>
-          <label className="text-sm font-medium text-white/85">目标区域 *</label>
+          <label className="text-sm font-medium text-white/85">
+            目标区域 *
+          </label>
           <div className="mt-3 flex flex-wrap gap-2">
             {TARGET_AREA_OPTIONS.map((area) => {
               const active = form.target_areas.includes(area);
+
               return (
                 <button
                   type="button"
@@ -230,8 +239,10 @@ const P1Form = forwardRef<P1Handle, P1FormProps>(function P1Form(
           <textarea
             className="mt-2 min-h-[110px] w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35 outline-none focus:border-cyan-400/40"
             value={form.note}
-            onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
-            placeholder="选填"
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, note: e.target.value }))
+            }
+            placeholder="可填写客户需求、现场情况、特殊说明等"
           />
         </div>
 
