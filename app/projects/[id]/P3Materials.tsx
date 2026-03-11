@@ -518,22 +518,7 @@ const P3Materials = forwardRef<P3Handle, { projectId: string; onChanged?: () => 
         </div>
       </div>
 
-      {/* 阶段确认 */}
-      <div className="bg-white border rounded-2xl p-4">
-        <div className="font-bold">阶段确认</div>
-        <div className="mt-2 text-sm opacity-90">
-          确认后进入 P4（施工中），首页颜色会随阶段变化。
-        </div>
-        <button
-          onClick={confirmToP4}
-          disabled={loading}
-          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-90"
-        >
-          ✅ 确认进入 P4（施工中）
-        </button>
-
-        {msg && <div className="mt-3 text-sm text-red-600">{msg}</div>}
-      </div>
+      
     </div>
   );
  }

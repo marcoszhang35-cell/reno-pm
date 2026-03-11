@@ -484,18 +484,7 @@ const P4Construction = forwardRef<P4Handle, { projectId: string; onChanged?: () 
         );
       })}
 
-      {/* 完工关闭 */}
-      <div className="bg-white border rounded-2xl p-4">
-        <div className="font-bold">完工关闭</div>
-        <div className="mt-2 text-sm opacity-90">关闭后项目进入 CLOSED，但历史信息仍可查看。</div>
-        <button
-          onClick={closeProject}
-          disabled={loading}
-          className="mt-3 w-full px-4 py-3 rounded-2xl bg-black text-white text-base active:scale-[0.99] disabled:opacity-70"
-        >
-          ✅ 完工（关闭项目）
-        </button>
-      </div>
+      
     </div>
   );
   }

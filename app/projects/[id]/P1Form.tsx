@@ -189,13 +189,7 @@ export default function P1Form({
           />
         </div>
 
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full px-4 py-3 rounded-xl bg-black text-white font-medium disabled:opacity-80"
-        >
-          {saving ? "保存中..." : "保存 P1 信息"}
-        </button>
+      
       </div>
     </div>
   );

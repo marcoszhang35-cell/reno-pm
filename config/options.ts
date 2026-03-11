@@ -21,9 +21,10 @@ export const TARGET_AREA_OPTIONS = [
 export const STAGES = [
   { key: "P1_NEW", label: "新建", color: "bg-slate-600" },
   { key: "P2_MEASURE_QUOTE", label: "量尺报价", color: "bg-sky-600" },
+  { key: "PAY_PENDING", label: "付款中", color: "bg-emerald-500" },
   { key: "P3_START_MATERIALS", label: "进场材料", color: "bg-amber-500" },
   { key: "P4_CONSTRUCTION", label: "施工中", color: "bg-violet-600" },
-  { key: "CLOSED", label: "已完工", color: "bg-emerald-600" },
+  { key: "CLOSED", label: "已完工", color: "bg-gray-600" },
 ] as const;
 
 export function stageMeta(stage: string) {

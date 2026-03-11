@@ -1,11 +1,9 @@
-// components/QuotePdfDoc.tsx
-"use client";
-
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 
 type Quote = {
   id: string;
+  project_id: string;
   recommended_total: number;
   total_amount: number;
   note: string | null;
@@ -19,140 +17,253 @@ type QuoteItem = {
   unit_price: number;
   amount: number;
   sort_order: number;
+  cost_price?: number;
 };
 
-type Payment = {
-  id: string;
-  seq: number;
-  title: string;
-  due_date: string | null;
-  percent: number;
-  amount: number;
-  paid: boolean;
-};
-
-const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 11 },
-  h1: { fontSize: 18, fontWeight: "bold", marginBottom: 8 },
-  h2: { fontSize: 12, fontWeight: "bold", marginTop: 14, marginBottom: 6 },
-  small: { fontSize: 10, color: "#666" },
-  row: { flexDirection: "row" },
-  card: { borderWidth: 1, borderColor: "#ddd", padding: 10, borderRadius: 6 },
-  table: { borderWidth: 1, borderColor: "#ddd" },
-  th: {
-    backgroundColor: "#f3f3f3",
-    fontWeight: "bold",
-    padding: 6,
-    borderRightWidth: 1,
-    borderRightColor: "#ddd",
-  },
-  td: {
-    padding: 6,
-    borderRightWidth: 1,
-    borderRightColor: "#eee",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  col1: { width: "44%" },
-  col2: { width: "12%", textAlign: "right" },
-  col3: { width: "14%", textAlign: "right" },
-  col4: { width: "14%", textAlign: "right" },
-  col5: { width: "16%", textAlign: "right" },
-});
-
-function money(v: any) {
-  const x = Number(v || 0);
-  return x.toFixed(2);
+function money(v: number) {
+  return `NZD ${Number(v || 0).toFixed(2)}`;
 }
 
-export default function QuotePdfDoc(props: {
-  projectName?: string;
-  projectAddress?: string;
+const styles = StyleSheet.create({
+  page: {
+    padding: 28,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#18181b",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    paddingBottom: 12,
+  },
+  logo: {
+    width: 120,
+    height: 48,
+    objectFit: "contain",
+  },
+  titleWrap: {
+    textAlign: "right",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  subTitle: {
+    fontSize: 10,
+    color: "#52525b",
+  },
+
+  infoBlock: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e4e4e7",
+    padding: 10,
+    borderRadius: 4,
+  },
+  infoRow: {
+    flexDirection: "row",
+    marginBottom: 5,
+  },
+  label: {
+    width: 100,
+    fontWeight: 700,
+  },
+  value: {
+    flex: 1,
+  },
+
+  table: {
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+  },
+  headerRow: {
+    flexDirection: "row",
+    backgroundColor: "#f4f4f5",
+    borderBottomWidth: 1,
+    borderBottomColor: "#d4d4d8",
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+  },
+  bodyRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+  },
+
+  col1: {
+    width: "46%",
+    paddingRight: 8,
+  },
+  col2: {
+    width: "18%",
+    textAlign: "right",
+  },
+  col3: {
+    width: "18%",
+    textAlign: "right",
+  },
+  col4: {
+    width: "18%",
+    textAlign: "right",
+  },
+
+  itemTitle: {
+    fontSize: 10,
+    fontWeight: 600,
+  },
+  note: {
+    fontSize: 8.5,
+    color: "#52525b",
+    marginTop: 2,
+    lineHeight: 1.35,
+  },
+
+  totalsWrap: {
+    marginTop: 16,
+    alignItems: "flex-end",
+  },
+  totalBox: {
+    width: 220,
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    padding: 10,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  totalFinalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#d4d4d8",
+    fontWeight: 700,
+  },
+
+  noteBlock: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: "#e4e4e7",
+    padding: 10,
+  },
+  noteTitle: {
+    fontWeight: 700,
+    marginBottom: 5,
+  },
+});
+
+export default function QuotePdfDoc({
+  projectName,
+  projectAddress,
+  quote,
+  items,
+  logoUrl,
+}: {
+  projectName: string;
+  projectAddress: string;
   quote: Quote;
   items: QuoteItem[];
-  payments: Payment[];
+  logoUrl?: string;
 }) {
-  const { projectName, projectAddress, quote, items, payments } = props;
-
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate()
-  ).padStart(2, "0")}`;
+  const subtotal = items.reduce((s, it) => s + Number(it.amount || 0), 0);
+  const gst = subtotal * 0.15;
+  const totalIncl = subtotal + gst;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>Quote / Quotation</Text>
-        <Text style={styles.small}>Generated: {dateStr}</Text>
-
-        <View style={{ height: 10 }} />
-
-        <View style={styles.card}>
-          <Text style={{ fontWeight: "bold" }}>Project Summary</Text>
-          <View style={{ height: 6 }} />
-          <Text>Client: {projectName || "-"}</Text>
-          <Text>Address: {projectAddress || "-"}</Text>
-          <Text>Quote ID: {quote.id}</Text>
+        <View style={styles.header}>
+          <View>{logoUrl ? <Image src={logoUrl} style={styles.logo} /> : <View />}</View>
+          <View style={styles.titleWrap}>
+            <Text style={styles.title}>Quotation</Text>
+            <Text style={styles.subTitle}>RENO-PM</Text>
+          </View>
         </View>
 
-        <Text style={styles.h2}>Summary</Text>
-        <View style={styles.card}>
-          <Text>Total (DB): NZD {money(quote.total_amount)}</Text>
-          <Text>Recommended (Manual): NZD {money(quote.recommended_total)}</Text>
-          {!!quote.note && <Text>Note: {quote.note}</Text>}
+        <View style={styles.infoBlock}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Client</Text>
+            <Text style={styles.value}>{projectName || "-"}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Address</Text>
+            <Text style={styles.value}>{projectAddress || "-"}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Recommended</Text>
+            <Text style={styles.value}>{money(quote.recommended_total || 0)}</Text>
+          </View>
         </View>
 
-        <Text style={styles.h2}>Itemised Quote</Text>
         <View style={styles.table}>
-          <View style={styles.row}>
-            <Text style={[styles.th, styles.col1]}>Item</Text>
-            <Text style={[styles.th, styles.col2]}>Qty</Text>
-            <Text style={[styles.th, styles.col3]}>Unit</Text>
-            <Text style={[styles.th, styles.col4]}>Amount</Text>
-            <Text style={[styles.th, styles.col5]}>Description</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.col1}>Item</Text>
+            <Text style={styles.col2}>ex GST</Text>
+            <Text style={styles.col3}>GST 15%</Text>
+            <Text style={styles.col4}>incl GST</Text>
           </View>
 
-          {items
-            .slice()
-            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-            .map((it) => (
-              <View key={it.id} style={styles.row}>
-                <Text style={[styles.td, styles.col1]}>{it.item_name}</Text>
-                <Text style={[styles.td, styles.col2]}>{String(it.qty ?? 0)}</Text>
-                <Text style={[styles.td, styles.col3]}>NZD {money(it.unit_price)}</Text>
-                <Text style={[styles.td, styles.col4]}>NZD {money(it.amount)}</Text>
-                <Text style={[styles.td, styles.col5]}>{it.description || "-"}</Text>
-              </View>
-            ))}
+          {items.length === 0 ? (
+            <View style={styles.bodyRow}>
+              <Text style={styles.col1}>No quote items</Text>
+              <Text style={styles.col2}>-</Text>
+              <Text style={styles.col3}>-</Text>
+              <Text style={styles.col4}>-</Text>
+            </View>
+          ) : (
+            items.map((it, idx) => {
+              const ex = Number(it.amount || 0);
+              const gstValue = ex * 0.15;
+              const incl = ex + gstValue;
+
+              return (
+                <View key={it.id ?? idx} style={styles.bodyRow}>
+                  <View style={styles.col1}>
+                    <Text style={styles.itemTitle}>{it.item_name || `Item ${idx + 1}`}</Text>
+                    {it.description ? <Text style={styles.note}>{it.description}</Text> : null}
+                  </View>
+                  <Text style={styles.col2}>{money(ex)}</Text>
+                  <Text style={styles.col3}>{money(gstValue)}</Text>
+                  <Text style={styles.col4}>{money(incl)}</Text>
+                </View>
+              );
+            })
+          )}
         </View>
 
-        <Text style={styles.h2}>Payment Schedule</Text>
-        <View style={styles.table}>
-          <View style={styles.row}>
-            <Text style={[styles.th, { width: "10%" }]}>#</Text>
-            <Text style={[styles.th, { width: "34%" }]}>Title</Text>
-            <Text style={[styles.th, { width: "18%" }]}>Due</Text>
-            <Text style={[styles.th, { width: "18%", textAlign: "right" }]}>Percent</Text>
-            <Text style={[styles.th, { width: "20%", textAlign: "right" }]}>Amount</Text>
+        <View style={styles.totalsWrap}>
+          <View style={styles.totalBox}>
+            <View style={styles.totalRow}>
+              <Text>Subtotal</Text>
+              <Text>{money(subtotal)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text>GST 15%</Text>
+              <Text>{money(gst)}</Text>
+            </View>
+            <View style={styles.totalFinalRow}>
+              <Text>Total incl GST</Text>
+              <Text>{money(totalIncl)}</Text>
+            </View>
           </View>
-
-          {payments
-            .slice()
-            .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
-            .map((p) => (
-              <View key={p.id} style={styles.row}>
-                <Text style={[styles.td, { width: "10%" }]}>{String(p.seq)}</Text>
-                <Text style={[styles.td, { width: "34%" }]}>{p.title}</Text>
-                <Text style={[styles.td, { width: "18%" }]}>{p.due_date || "-"}</Text>
-                <Text style={[styles.td, { width: "18%", textAlign: "right" }]}>
-                  {(Number(p.percent) || 0).toFixed(2)}%
-                </Text>
-                <Text style={[styles.td, { width: "20%", textAlign: "right" }]}>
-                  NZD {money(p.amount)}
-                </Text>
-              </View>
-            ))}
         </View>
+
+        {quote.note ? (
+          <View style={styles.noteBlock}>
+            <Text style={styles.noteTitle}>Note</Text>
+            <Text>{quote.note}</Text>
+          </View>
+        ) : null}
       </Page>
     </Document>
   );
